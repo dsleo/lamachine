@@ -1,5 +1,3 @@
-# Firebase Studio
+# Contrainte
 
-This is a NextJS starter in Firebase Studio.
-
-To get started, take a look at src/app/page.tsx.
+Simple text editor to write with constraintes.
