@@ -47,19 +47,19 @@ export default function OulipoEditor() {
     }
   }, [param]);
 
-  const validateText = (currentText: string) => {
+  const validateAndSetText = (currentText: string) => {
     if (selectedConstraint && param) {
       const { isValid, error: validationError } = selectedConstraint.validate(currentText, param);
       setError(isValid ? null : validationError || 'Erreur de contrainte');
     } else {
       setError(null);
     }
+    setText(currentText);
   };
 
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newText = e.target.value;
-    setText(newText);
-    validateText(newText);
+    validateAndSetText(newText);
   };
 
   const handleConstraintChange = (id: ConstraintId) => {
@@ -71,8 +71,7 @@ export default function OulipoEditor() {
 
   const handleParamChange = (newParam: string) => {
     setParam(newParam);
-    setText('');
-    setError(null);
+    validateAndSetText(text);
   }
 
   const showParamCard = !!selectedConstraint;
@@ -158,7 +157,6 @@ export default function OulipoEditor() {
               {error && (
                 <Alert variant="destructive">
                   <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Erreur de contrainte</AlertTitle>
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
               )}
