@@ -10,6 +10,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { cn } from '@/lib/utils';
 
 type ConstraintId = (typeof CONSTRAINTS)[number]['id'] | 'none';
 
@@ -17,6 +18,7 @@ export default function OulipoEditor() {
   const [constraintId, setConstraintId] = useState<ConstraintId>('none');
   const [param, setParam] = useState<string>('');
   const [text, setText] = useState<string>('');
+  const [error, setError] = useState<string | null>(null);
   const [isClient, setIsClient] = useState(false);
 
   const paramCardRef = useRef<HTMLDivElement>(null);
@@ -45,28 +47,32 @@ export default function OulipoEditor() {
     }
   }, [param]);
 
+  const validateText = (currentText: string) => {
+    if (selectedConstraint && param) {
+      const { isValid, error: validationError } = selectedConstraint.validate(currentText, param);
+      setError(isValid ? null : validationError || 'Erreur de contrainte');
+    } else {
+      setError(null);
+    }
+  };
+
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newText = e.target.value;
-
-    if (selectedConstraint && param) {
-      const { isValid } = selectedConstraint.validate(newText, param);
-      if (isValid) {
-        setText(newText);
-      }
-    } else {
-      setText(newText);
-    }
+    setText(newText);
+    validateText(newText);
   };
 
   const handleConstraintChange = (id: ConstraintId) => {
     setConstraintId(id);
     setParam('');
     setText('');
+    setError(null);
   }
 
   const handleParamChange = (newParam: string) => {
     setParam(newParam);
     setText('');
+    setError(null);
   }
 
   const showParamCard = !!selectedConstraint;
@@ -138,14 +144,24 @@ export default function OulipoEditor() {
             <CardHeader>
               <CardTitle>3. Écrivez</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
               <Textarea
                 value={text}
                 onChange={handleTextChange}
                 placeholder="Commencez à taper..."
-                className="typewriter-textarea"
+                className={cn(
+                  "typewriter-textarea",
+                  error && "border-destructive focus-visible:ring-destructive"
+                )}
                 rows={10}
               />
+              {error && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Erreur de contrainte</AlertTitle>
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
             </CardContent>
           </Card>
         </div>
