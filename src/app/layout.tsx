@@ -3,8 +3,8 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
 
 export const metadata: Metadata = {
-  title: 'La Contrainte',
-  description: 'Une application pour écrire avec des contraintes Oulipiennes.',
+  title: 'Écrire sous la contrainte',
+  description: 'Une application pour écrire sous contrainte, inspirée de l’Oulipo.',
   icons: {
     icon: '/icon.svg',
   },
