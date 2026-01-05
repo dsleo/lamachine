@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from 'react';
+import Image from 'next/image';
 import { AlertCircle, CheckCircle2 } from 'lucide-react';
 import { CONSTRAINTS, type Constraint, type ConstraintParam } from '@/lib/constraints';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { cn } from '@/lib/utils';
+import CatChat from '../../assets/images/chat.png';
 
 type ConstraintId = (typeof CONSTRAINTS)[number]['id'] | 'none';
 
@@ -40,11 +42,6 @@ export default function OulipoEditor() {
     CONSTRAINTS.find(c => c.id === constraintId),
     [constraintId]
   );
-  useEffect(() => {
-    if (selectedConstraint && paramCardRef.current) {
-      paramCardRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-  }, [selectedConstraint]);
 
   const validateAndSetText = (currentText: string) => {
     if (!selectedConstraint) {
@@ -137,7 +134,18 @@ export default function OulipoEditor() {
   const showParamCard = !!selectedConstraint;
   const requiresParam = selectedConstraint && selectedConstraint.parameter.kind !== 'none';
   const hasParam = !requiresParam || !!param;
+  // Show the editor card only once a constraint is chosen AND any required
+  // parameter has been provided.
   const showEditorCard = showParamCard && hasParam;
+
+  // When the editor card becomes available (constraint + any required parameter
+  // set), or when the parameter changes, smoothly scroll it into view so the
+  // user lands directly on "Écrivez".
+  useEffect(() => {
+    if (showEditorCard && editorCardRef.current) {
+      editorCardRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [showEditorCard, param, constraintId]);
 
   const handlePalindromeCheck = () => {
     if (!selectedConstraint || selectedConstraint.id !== 'palindrome') return;
@@ -155,14 +163,25 @@ export default function OulipoEditor() {
   }
 
   return (
-    <div className="w-full max-w-3xl space-y-6">
+    <div className="w-full max-w-4xl space-y-6">
       <header className="text-center space-y-2">
-        <h1 className="text-4xl font-bold text-primary">Écrire sous la contrainte</h1>
+        <h1 className="text-4xl font-bold text-black">Écrire sous la contrainte</h1>
       </header>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="relative flex flex-col items-center pb-10">
           <CardTitle>Choisissez une contrainte</CardTitle>
+          {/* Contextual cat illustration: subtle, grayscale, with no visible border or background */}
+          <div className="pointer-events-none absolute right-10 -top-16 hidden h-32 w-32 opacity-70 grayscale md:block">
+            <Image
+              src={CatChat}
+              alt="Chat oulipien, illustration pour l'écriture sous contrainte"
+              fill
+              sizes="96px"
+              className="object-contain select-none"
+              priority
+            />
+          </div>
         </CardHeader>
         <CardContent>
           <RadioGroup value={constraintId} onValueChange={handleConstraintChange} className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -172,7 +191,7 @@ export default function OulipoEditor() {
                   <RadioGroupItem value={constraint.id} id={constraint.id} />
                   <span className="font-bold">{constraint.name}</span>
                 </div>
-                <span className="text-sm text-muted-foreground pl-6">{constraint.description}</span>
+                <span className="text-xs text-muted-foreground pl-6">{constraint.description}</span>
               </Label>
             ))}
           </RadioGroup>
