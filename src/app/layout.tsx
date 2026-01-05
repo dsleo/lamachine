@@ -1,10 +1,13 @@
-import type {Metadata} from 'next';
+import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
 
 export const metadata: Metadata = {
   title: 'La Contrainte',
   description: 'Une application pour écrire avec des contraintes Oulipiennes.',
+  icons: {
+    icon: '/icon.svg',
+  },
 };
 
 export default function RootLayout({

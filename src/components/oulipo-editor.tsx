@@ -28,19 +28,15 @@ export default function OulipoEditor() {
     setIsClient(true);
   }, []);
 
-  const selectedConstraint = useMemo(() => 
+  const selectedConstraint = useMemo(() =>
     CONSTRAINTS.find(c => c.id === constraintId),
     [constraintId]
   );
-
-  // Scroll to param card when a constraint is selected
   useEffect(() => {
     if (selectedConstraint && paramCardRef.current) {
       paramCardRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   }, [selectedConstraint]);
-
-  // Scroll to editor card when param is selected
   useEffect(() => {
     if (param && editorCardRef.current) {
       editorCardRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -50,10 +46,27 @@ export default function OulipoEditor() {
   const validateAndSetText = (currentText: string) => {
     if (selectedConstraint && param) {
       const { isValid, error: validationError } = selectedConstraint.validate(currentText, param);
-      setError(isValid ? null : validationError || 'Erreur de contrainte');
+
+      if (!isValid) {
+        setError(validationError || 'Erreur de contrainte');
+
+        // If the user is trying to add or replace characters while the
+        // constraint is violated, block the change by keeping the previous
+        // valid text. Only allow edits that shorten the text so they can
+        // backspace their way back to a valid state.
+        if (currentText.length >= text.length) {
+          return;
+        }
+
+        setText(currentText);
+        return;
+      }
+
+      setError(null);
     } else {
       setError(null);
     }
+
     setText(currentText);
   };
 
@@ -78,7 +91,7 @@ export default function OulipoEditor() {
   const showEditorCard = showParamCard && !!param;
 
   if (!isClient) {
-    return null; // or a loading skeleton
+    return null;
   }
 
   return (
@@ -98,10 +111,10 @@ export default function OulipoEditor() {
           <RadioGroup value={constraintId} onValueChange={handleConstraintChange} className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {CONSTRAINTS.map((constraint) => (
               <Label key={constraint.id} htmlFor={constraint.id} className="flex flex-col items-start gap-2 rounded-md border p-4 hover:bg-accent/50 hover:text-accent-foreground [&:has([data-state=checked])]:border-primary cursor-pointer">
-                 <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2">
                   <RadioGroupItem value={constraint.id} id={constraint.id} />
                   <span className="font-bold">{constraint.name}</span>
-                 </div>
+                </div>
                 <span className="text-sm text-muted-foreground pl-6">{constraint.description}</span>
               </Label>
             ))}
@@ -162,7 +175,7 @@ export default function OulipoEditor() {
           </Card>
         </div>
       )}
-      
+
     </div>
   );
 }
