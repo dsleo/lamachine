@@ -12,7 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { cn } from '@/lib/utils';
-import CatChat from '../../assets/images/chat.png';
+// Use the public/ folder path so it works with basePath on GitHub Pages
+const CAT_CHAT_SRC = '/chat.png';
 
 type ConstraintId = (typeof CONSTRAINTS)[number]['id'] | 'none';
 
@@ -174,7 +175,7 @@ export default function OulipoEditor() {
           {/* Contextual cat illustration: subtle, grayscale, with no visible border or background */}
           <div className="pointer-events-none absolute right-10 -top-16 hidden h-32 w-32 opacity-70 grayscale md:block">
             <Image
-              src={CatChat}
+              src={CAT_CHAT_SRC}
               alt="Chat oulipien, illustration pour l'écriture sous contrainte"
               fill
               sizes="96px"

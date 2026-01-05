@@ -19,6 +19,9 @@ const nextConfig: NextConfig = {
     ignoreDuringBuilds: true,
   },
   images: {
+    // In static export on GitHub Pages there is no Image Optimization API,
+    // so disable optimization and serve images as plain <img> tags.
+    unoptimized: true,
     remotePatterns: [
       {
         protocol: 'https',
