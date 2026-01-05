@@ -2,7 +2,6 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from 'react';
-import Image from 'next/image';
 import { AlertCircle, CheckCircle2 } from 'lucide-react';
 import { CONSTRAINTS, type Constraint, type ConstraintParam } from '@/lib/constraints';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,8 +11,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { cn } from '@/lib/utils';
-// Use the public/ folder path so it works with basePath on GitHub Pages
-const CAT_CHAT_SRC = '/chat.png';
+// Build the correct path so it works locally and under GitHub Pages basePath
+const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
+const CAT_CHAT_SRC = `${BASE_PATH}/chat.png`;
 
 type ConstraintId = (typeof CONSTRAINTS)[number]['id'] | 'none';
 
@@ -174,13 +174,10 @@ export default function OulipoEditor() {
           <CardTitle>Choisissez une contrainte</CardTitle>
           {/* Contextual cat illustration: subtle, grayscale, with no visible border or background */}
           <div className="pointer-events-none absolute right-10 -top-16 hidden h-32 w-32 opacity-70 grayscale md:block">
-            <Image
+            <img
               src={CAT_CHAT_SRC}
               alt="Chat oulipien, illustration pour l'écriture sous contrainte"
-              fill
-              sizes="96px"
-              className="object-contain select-none"
-              priority
+              className="h-full w-full object-contain select-none"
             />
           </div>
         </CardHeader>

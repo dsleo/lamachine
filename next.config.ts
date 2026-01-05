@@ -43,6 +43,10 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  env: {
+    // Used on the client to build correct asset URLs under GitHub Pages basePath
+    NEXT_PUBLIC_BASE_PATH: isProd ? '/contrainte' : '',
+  },
 };
 
 export default nextConfig;
