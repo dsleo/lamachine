@@ -98,45 +98,54 @@ export default function DailyPage() {
 
     return (
         <main className="min-h-screen w-full bg-background">
-            <div className="mx-auto w-full max-w-5xl space-y-6 p-6 sm:p-10">
-                <header className="space-y-2">
-                    <h1 className="text-4xl font-bold">
+            <div className="mx-auto w-full max-w-5xl space-y-8 p-6 sm:p-10">
+                <header className="space-y-3">
+                    <div className="inline-flex w-fit items-center gap-2 rounded-full border bg-card px-3 py-1 text-xs text-muted-foreground">
+                        {lang === 'fr' ? 'Contrainte du jour' : 'Today'}
+                    </div>
+                    <h1 className="text-4xl font-bold tracking-tight">
                         {lang === 'fr' ? `Contrainte du ${todayLong}` : `Daily constraint — ${todayLong}`}
                     </h1>
                 </header>
 
-                <Card>
-                    <CardContent className="pt-6">
-                        <div className="text-xl font-semibold">{sentence}</div>
-                        <div className="mt-2 text-sm text-muted-foreground">{explanation}</div>
+                <section className="rounded-2xl border bg-card p-6 shadow-sm">
+                    <div className="space-y-2">
+                        <div className="text-2xl font-semibold leading-tight">{sentence}</div>
+                        <div className="text-sm text-muted-foreground">{explanation}</div>
+                    </div>
 
-                        <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
-                            <Link
-                                href="/daily/coach"
-                                className="rounded-lg border bg-card p-4 transition-colors hover:bg-accent/40 hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                            >
-                                <div className="text-base font-semibold">{lang === 'fr' ? 'Coach' : 'Coach'}</div>
-                                <div className="mt-1 text-sm text-muted-foreground">
-                                    {lang === 'fr'
-                                        ? 'Vous donnez une consigne simple (thème, ton…), puis la Machine écrit. Vous choisissez quand envoyer.'
-                                        : 'You give a simple instruction (theme, tone…), then the Machine writes. You decide when to submit.'}
-                                </div>
-                            </Link>
+                    <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+                        <Link
+                            href="/daily/coach"
+                            className="group rounded-2xl border bg-background p-5 transition-all hover:-translate-y-[1px] hover:border-primary/50 hover:bg-accent/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                            <div className="flex items-center justify-between gap-3">
+                                <div className="text-lg font-semibold">Coach</div>
+                                <div className="text-xs text-muted-foreground group-hover:text-foreground">→</div>
+                            </div>
+                            <div className="mt-2 text-sm text-muted-foreground">
+                                {lang === 'fr'
+                                    ? 'Vous donnez une consigne (thème, ton…), la Machine écrit.'
+                                    : 'You give an instruction (theme, tone…), the Machine writes.'}
+                            </div>
+                        </Link>
 
-                            <Link
-                                href="/daily/versus"
-                                className="rounded-lg border bg-card p-4 transition-colors hover:bg-accent/40 hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                            >
-                                <div className="text-base font-semibold">{lang === 'fr' ? 'Humain vs Machine' : 'Human vs Machine'}</div>
-                                <div className="mt-1 text-sm text-muted-foreground">
-                                    {lang === 'fr'
-                                        ? 'Vous écrivez votre texte sous contrainte. La Machine écrit en parallèle. Envoyez votre version.'
-                                        : 'You write your constrained text. The Machine writes in parallel. Submit your version.'}
-                                </div>
-                            </Link>
-                        </div>
-                    </CardContent>
-                </Card>
+                        <Link
+                            href="/daily/versus"
+                            className="group rounded-2xl border bg-background p-5 transition-all hover:-translate-y-[1px] hover:border-primary/50 hover:bg-accent/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                            <div className="flex items-center justify-between gap-3">
+                                <div className="text-lg font-semibold">{lang === 'fr' ? 'Humain vs Machine' : 'Human vs Machine'}</div>
+                                <div className="text-xs text-muted-foreground group-hover:text-foreground">→</div>
+                            </div>
+                            <div className="mt-2 text-sm text-muted-foreground">
+                                {lang === 'fr'
+                                    ? 'Vous écrivez votre texte. La Machine écrit en parallèle.'
+                                    : 'You write your text. The Machine writes in parallel.'}
+                            </div>
+                        </Link>
+                    </div>
+                </section>
             </div>
         </main>
     );

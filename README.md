@@ -61,9 +61,6 @@ Open: http://localhost:9002
 - `/daily` — daily challenge hub (today’s constraint)
 - `/daily/coach` — daily coach (LLM) run + Validate & Submit
 - `/daily/versus` — daily human vs machine + Validate & Submit
-- `/free` — freeplay menu
-- `/free/arena` — freeplay arena
-- `/free/versus` — freeplay versus
 - `/campaign` — campaign menu
 - `/arena` — campaign arena
 - `/versus` — campaign versus
