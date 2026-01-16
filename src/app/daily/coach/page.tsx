@@ -70,17 +70,18 @@ export default function DailyCoachPage() {
     return (
         <main className="min-h-screen w-full bg-background">
             <div className="mx-auto w-full max-w-5xl space-y-6 p-6 sm:p-10">
+                <header className="space-y-2">
+                    <h1 className="text-4xl font-bold tracking-tight">
+                        {lang === 'fr' ? 'Coachez la Machine' : 'Coach the Machine'}
+                    </h1>
+                </header>
+
                 <Card>
                     <CardContent className="pt-6">
                         <div className="flex items-start justify-between gap-4">
                             <div className="space-y-1">
                                 <div className="text-2xl font-semibold">{constraint.name}</div>
                                 {challenge.param && <div className="text-sm text-muted-foreground">{challenge.param}</div>}
-                                <div className="text-sm text-muted-foreground">
-                                    {lang === 'fr'
-                                        ? 'Mode Coach: vous guidez la Machine.'
-                                        : 'Coach mode: you guide the Machine.'}
-                                </div>
                             </div>
                             <div className="text-xs text-muted-foreground tabular-nums">{dayKey}</div>
                         </div>

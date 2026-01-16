@@ -3,30 +3,16 @@
 import Link from 'next/link';
 import { useMemo } from 'react';
 import { useSettings } from '@/hooks/use-settings';
-import { t } from '@/lib/i18n';
 import { getDailyChallenge, getParisDayKey } from '@/lib/daily';
 import { getConstraintById } from '@/lib/constraints';
-import { Card, CardContent } from '@/components/ui/card';
 
 export default function DailyPage() {
     const { settings } = useSettings();
     const lang = settings.lang;
-    const s = t(lang);
 
     const todayKey = useMemo(() => getParisDayKey(), []);
     const challenge = useMemo(() => getDailyChallenge(todayKey), [todayKey]);
     const constraint = useMemo(() => getConstraintById(challenge.constraintId), [challenge.constraintId]);
-
-    const todayLong = useMemo(() => {
-        const d = new Date();
-        return new Intl.DateTimeFormat(lang === 'fr' ? 'fr-FR' : 'en-US', {
-            timeZone: 'Europe/Paris',
-            weekday: 'long',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-        }).format(d);
-    }, [lang]);
 
     const sentence = useMemo(() => {
         if (challenge.constraintId === 'lipogram') {
@@ -100,11 +86,8 @@ export default function DailyPage() {
         <main className="min-h-screen w-full bg-background">
             <div className="mx-auto w-full max-w-5xl space-y-8 p-6 sm:p-10">
                 <header className="space-y-3">
-                    <div className="inline-flex w-fit items-center gap-2 rounded-full border bg-card px-3 py-1 text-xs text-muted-foreground">
-                        {lang === 'fr' ? 'Contrainte du jour' : 'Today'}
-                    </div>
                     <h1 className="text-4xl font-bold tracking-tight">
-                        {lang === 'fr' ? `Contrainte du ${todayLong}` : `Daily constraint — ${todayLong}`}
+                        {lang === 'fr' ? 'Contrainte du jour' : 'Daily constraint'}
                     </h1>
                 </header>
 
