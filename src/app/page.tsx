@@ -5,18 +5,12 @@ export default function Home() {
         <h1 className="text-5xl font-bold tracking-tight">La Machine</h1>
         <p className="text-muted-foreground">AGI vs OuLiPo</p>
 
-        <div className="grid grid-cols-1 gap-4">
+        <div className="flex items-center justify-center">
           <a
             href="/daily"
-            className="inline-flex items-center justify-center rounded-xl border bg-card px-6 py-4 font-semibold transition-all hover:-translate-y-[1px] hover:bg-accent/30 hover:border-primary/50"
+            className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-6 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            Jouez
-          </a>
-        </div>
-
-        <div className="text-sm">
-          <a href="/editor" className="underline underline-offset-4 text-muted-foreground hover:text-foreground">
-            Éditeur
+            Jouer
           </a>
         </div>
       </div>

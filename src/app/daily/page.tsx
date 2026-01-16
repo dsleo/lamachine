@@ -86,8 +86,16 @@ export default function DailyPage() {
         <main className="flex min-h-screen w-full flex-col items-center justify-center bg-background p-6">
             <div className="w-full max-w-3xl space-y-6 text-center">
                 <header className="space-y-3">
+                    <div className="mx-auto w-fit rounded-full border bg-card px-3 py-1 text-xs text-muted-foreground">
+                        {lang === 'fr' ? 'Contrainte du jour' : 'Today’s challenge'}
+                    </div>
                     <h1 className="text-4xl font-bold tracking-tight">{sentence}</h1>
                     <p className="text-muted-foreground">{explanation}</p>
+                    <p className="text-xs text-muted-foreground">
+                        {lang === 'fr'
+                            ? 'Un jeu. Une nouvelle contrainte chaque jour.'
+                            : 'A game. A new constraint every day.'}
+                    </p>
                 </header>
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
