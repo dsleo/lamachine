@@ -74,7 +74,7 @@ export default function DailyVersusPage() {
             <div className="mx-auto w-full max-w-6xl space-y-6 p-6 sm:p-10">
                 <header className="space-y-2">
                     <h1 className="text-4xl font-bold tracking-tight">
-                        {lang === 'fr' ? 'Humain vs Machine' : 'Human vs Machine'}
+                        {lang === 'fr' ? 'Battez la Machine' : 'Beat the Machine'}
                     </h1>
                 </header>
 
@@ -82,8 +82,11 @@ export default function DailyVersusPage() {
                     <CardContent className="pt-6">
                         <div className="flex items-start justify-between gap-4">
                             <div className="space-y-1">
-                                <div className="text-2xl font-semibold">{constraint.name}</div>
-                                {challenge.param && <div className="text-sm text-muted-foreground">{challenge.param}</div>}
+                                <div className="text-2xl font-semibold">
+                                    {constraint.name}
+                                    {challenge.param ? ` en ${challenge.param}` : ''}
+                                </div>
+                                <div className="text-sm text-muted-foreground">{constraint.description}</div>
                             </div>
                             <div className="text-xs text-muted-foreground tabular-nums">{dayKey}</div>
                         </div>

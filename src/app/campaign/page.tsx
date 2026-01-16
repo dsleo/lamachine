@@ -15,7 +15,7 @@ export default function CampaignStartPage() {
                         <div className="text-sm text-muted-foreground">Aidez la Machine à aller le plus loin possible, sous contrainte.</div>
                     </a>
                     <a href="/versus" className="block rounded-lg border bg-card p-5 hover:bg-accent/30">
-                        <div className="text-lg font-semibold">Humain vs Machine</div>
+                        <div className="text-lg font-semibold">Battez la Machine</div>
                         <div className="text-sm text-muted-foreground">Battez la Machine sur chaque niveau.</div>
                     </a>
                 </div>

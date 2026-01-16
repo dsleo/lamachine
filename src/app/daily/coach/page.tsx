@@ -80,8 +80,11 @@ export default function DailyCoachPage() {
                     <CardContent className="pt-6">
                         <div className="flex items-start justify-between gap-4">
                             <div className="space-y-1">
-                                <div className="text-2xl font-semibold">{constraint.name}</div>
-                                {challenge.param && <div className="text-sm text-muted-foreground">{challenge.param}</div>}
+                                <div className="text-2xl font-semibold">
+                                    {constraint.name}
+                                    {challenge.param ? ` en ${challenge.param}` : ''}
+                                </div>
+                                <div className="text-sm text-muted-foreground">{constraint.description}</div>
                             </div>
                             <div className="text-xs text-muted-foreground tabular-nums">{dayKey}</div>
                         </div>
@@ -94,7 +97,7 @@ export default function DailyCoachPage() {
                             <>
                                 <div className="font-medium">Comment jouer</div>
                                 <ol className="list-decimal pl-5 space-y-1 text-muted-foreground">
-                                    <li>Écrivez une consigne dans la zone “Pilotage du prompt” (thème, ton, personnage…).</li>
+                                    <li>Écrivez une consigne dans la zone “Consignes pour la Machine” (thème, ton, personnage…).</li>
                                     <li>Cliquez sur “Lancer”. La Machine écrit automatiquement.</li>
                                     <li>Quand ça vous plaît, cliquez “Valider & envoyer”.</li>
                                     <li>Le texte est accepté seulement s’il respecte la contrainte et “fait sens”.</li>
@@ -120,6 +123,7 @@ export default function DailyCoachPage() {
                     param={challenge.param}
                     steeringEnabled
                     onTextChange={setText}
+                    controlsPlacement="steering"
                 />
 
                 <div className="flex items-center justify-end">

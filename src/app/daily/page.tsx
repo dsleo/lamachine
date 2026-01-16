@@ -115,7 +115,7 @@ export default function DailyPage() {
                             className="group rounded-2xl border bg-background p-5 transition-all hover:-translate-y-[1px] hover:border-primary/50 hover:bg-accent/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         >
                             <div className="flex items-center justify-between gap-3">
-                                <div className="text-lg font-semibold">{lang === 'fr' ? 'Humain vs Machine' : 'Human vs Machine'}</div>
+                                <div className="text-lg font-semibold">{lang === 'fr' ? 'Battez la Machine' : 'Beat the Machine'}</div>
                                 <div className="text-xs text-muted-foreground group-hover:text-foreground">→</div>
                             </div>
                             <div className="mt-2 text-sm text-muted-foreground">

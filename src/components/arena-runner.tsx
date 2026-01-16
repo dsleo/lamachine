@@ -58,6 +58,7 @@ export function ArenaRunner(props: {
     onStatusChange?: (status: RunnerStatus) => void;
     autoRun?: boolean;
     controlsEnabled?: boolean;
+    controlsPlacement?: 'footer' | 'steering';
     chrome?: boolean;
     headerEnabled?: boolean;
     statusEnabled?: boolean;
@@ -71,6 +72,7 @@ export function ArenaRunner(props: {
         onStatusChange,
         autoRun = false,
         controlsEnabled = true,
+        controlsPlacement = 'footer',
         chrome = true,
         headerEnabled = true,
         statusEnabled = true,
@@ -321,21 +323,23 @@ export function ArenaRunner(props: {
                     </span>
                 </div>
 
-                <div className="flex items-center gap-2">
-                    {controlsEnabled && (
-                        <>
-                            <Button size="sm" onClick={run} disabled={!hasParam || status === 'running'}>
-                                {s.common.run}
-                            </Button>
-                            <Button size="sm" variant="secondary" onClick={stop} disabled={status !== 'running'}>
-                                {s.common.stop}
-                            </Button>
-                            <Button size="sm" variant="outline" onClick={reset}>
-                                {s.common.reset}
-                            </Button>
-                        </>
-                    )}
-                </div>
+                {controlsPlacement === 'footer' && (
+                    <div className="flex items-center gap-2">
+                        {controlsEnabled && (
+                            <>
+                                <Button size="sm" onClick={run} disabled={!hasParam || status === 'running'}>
+                                    {s.common.run}
+                                </Button>
+                                <Button size="sm" variant="secondary" onClick={stop} disabled={status !== 'running'}>
+                                    {s.common.stop}
+                                </Button>
+                                <Button size="sm" variant="outline" onClick={reset}>
+                                    {s.common.reset}
+                                </Button>
+                            </>
+                        )}
+                    </div>
+                )}
             </div>
 
             {status === 'failed' && (
@@ -369,6 +373,20 @@ export function ArenaRunner(props: {
                             placeholder={s.common.steeringPlaceholder}
                             rows={3}
                         />
+
+                        {controlsEnabled && controlsPlacement === 'steering' && (
+                            <div className="mt-3 flex flex-wrap items-center gap-2">
+                                <Button size="sm" onClick={run} disabled={!hasParam || status === 'running'}>
+                                    {s.common.run}
+                                </Button>
+                                <Button size="sm" variant="secondary" onClick={stop} disabled={status !== 'running'}>
+                                    {s.common.stop}
+                                </Button>
+                                <Button size="sm" variant="outline" onClick={reset}>
+                                    {s.common.reset}
+                                </Button>
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
             )}

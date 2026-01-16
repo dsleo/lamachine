@@ -7,7 +7,7 @@ const STRINGS = {
         nav: {
             home: 'Accueil',
             arena: 'Coach',
-            versus: 'Humain vs Machine',
+            versus: 'Battez la Machine',
             editor: 'Éditeur',
         },
         common: {
@@ -23,7 +23,7 @@ const STRINGS = {
             distanceSurvived: 'Distance parcourue',
             chars: 'caractères',
             words: 'mots',
-            steering: 'Pilotage du prompt',
+            steering: 'Consignes pour la Machine',
             steeringPlaceholder: 'Ex : style, thème, ton, personnage, règles additionnelles…',
             systemPrompt: 'System prompt',
             prompt: 'Prompt',
@@ -37,7 +37,7 @@ const STRINGS = {
             statusFailed: 'Violation',
         },
         versus: {
-            title: 'Humain vs Machine',
+            title: 'Battez la Machine',
             description: 'Même contrainte. Qui va le plus loin ?',
             human: 'Humain',
             machine: 'Machine',
@@ -58,7 +58,7 @@ const STRINGS = {
         nav: {
             home: 'Home',
             arena: 'Coach',
-            versus: 'Human vs Machine',
+            versus: 'Beat the Machine',
             editor: 'Editor',
         },
         common: {
@@ -74,7 +74,7 @@ const STRINGS = {
             distanceSurvived: 'Distance survived',
             chars: 'chars',
             words: 'words',
-            steering: 'Prompt steering',
+            steering: 'Instructions for the Machine',
             steeringPlaceholder: 'E.g. style, theme, tone, character, extra rules…',
             systemPrompt: 'System prompt',
             prompt: 'Prompt',
@@ -88,7 +88,7 @@ const STRINGS = {
             statusFailed: 'Violation',
         },
         versus: {
-            title: 'Human vs Machine',
+            title: 'Beat the Machine',
             description: 'Same constraint. Who goes farther?',
             human: 'Human',
             machine: 'Machine',
