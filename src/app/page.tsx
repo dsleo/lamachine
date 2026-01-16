@@ -8,9 +8,9 @@ export default function Home() {
         <div className="grid grid-cols-1 gap-4">
           <a
             href="/daily"
-            className="block rounded-2xl border bg-card p-8 text-left transition-all hover:-translate-y-[1px] hover:bg-accent/30 hover:border-primary/50"
+            className="inline-flex items-center justify-center rounded-xl border bg-card px-6 py-4 font-semibold transition-all hover:-translate-y-[1px] hover:bg-accent/30 hover:border-primary/50"
           >
-            <div className="text-2xl font-semibold">Jouez</div>
+            Jouez
           </a>
         </div>
 

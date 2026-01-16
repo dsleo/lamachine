@@ -83,49 +83,36 @@ export default function DailyPage() {
     }, [challenge.constraintId, constraint.description, lang]);
 
     return (
-        <main className="min-h-screen w-full bg-background">
-            <div className="mx-auto w-full max-w-5xl space-y-8 p-6 sm:p-10">
+        <main className="flex min-h-screen w-full flex-col items-center justify-center bg-background p-6">
+            <div className="w-full max-w-3xl space-y-6 text-center">
                 <header className="space-y-3">
                     <h1 className="text-4xl font-bold tracking-tight">{sentence}</h1>
+                    <p className="text-muted-foreground">{explanation}</p>
                 </header>
 
-                <section className="rounded-2xl border bg-card p-6 shadow-sm">
-                    <div className="space-y-2">
-                        <div className="text-sm text-muted-foreground">{explanation}</div>
-                    </div>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <Link
+                        href="/daily/coach"
+                        className="group rounded-2xl border bg-card p-6 text-left transition-all hover:-translate-y-[1px] hover:bg-accent/30 hover:border-primary/50"
+                    >
+                        <div className="flex items-center justify-between gap-3">
+                            <div className="text-lg font-semibold">{lang === 'fr' ? 'Aidez la Machine' : 'Help the Machine'}</div>
+                            <div className="text-xs text-muted-foreground group-hover:text-foreground">→</div>
+                        </div>
+                        <div className="mt-1 text-sm text-muted-foreground">{lang === 'fr' ? 'Donnez des consignes.' : 'Give instructions.'}</div>
+                    </Link>
 
-                    <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
-                        <Link
-                            href="/daily/coach"
-                            className="group rounded-2xl border bg-background p-5 transition-all hover:-translate-y-[1px] hover:border-primary/50 hover:bg-accent/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        >
-                            <div className="flex items-center justify-between gap-3">
-                                <div className="text-lg font-semibold">Coach</div>
-                                <div className="text-xs text-muted-foreground group-hover:text-foreground">→</div>
-                            </div>
-                            <div className="mt-2 text-sm text-muted-foreground">
-                                {lang === 'fr'
-                                    ? 'Vous donnez une consigne (thème, ton…), la Machine écrit.'
-                                    : 'You give an instruction (theme, tone…), the Machine writes.'}
-                            </div>
-                        </Link>
-
-                        <Link
-                            href="/daily/versus"
-                            className="group rounded-2xl border bg-background p-5 transition-all hover:-translate-y-[1px] hover:border-primary/50 hover:bg-accent/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        >
-                            <div className="flex items-center justify-between gap-3">
-                                <div className="text-lg font-semibold">{lang === 'fr' ? 'Battez la Machine' : 'Beat the Machine'}</div>
-                                <div className="text-xs text-muted-foreground group-hover:text-foreground">→</div>
-                            </div>
-                            <div className="mt-2 text-sm text-muted-foreground">
-                                {lang === 'fr'
-                                    ? 'Vous écrivez votre texte. La Machine écrit en parallèle.'
-                                    : 'You write your text. The Machine writes in parallel.'}
-                            </div>
-                        </Link>
-                    </div>
-                </section>
+                    <Link
+                        href="/daily/versus"
+                        className="group rounded-2xl border bg-card p-6 text-left transition-all hover:-translate-y-[1px] hover:bg-accent/30 hover:border-primary/50"
+                    >
+                        <div className="flex items-center justify-between gap-3">
+                            <div className="text-lg font-semibold">{lang === 'fr' ? 'Battez la Machine' : 'Beat the Machine'}</div>
+                            <div className="text-xs text-muted-foreground group-hover:text-foreground">→</div>
+                        </div>
+                        <div className="mt-1 text-sm text-muted-foreground">{lang === 'fr' ? 'Écrivez plus loin.' : 'Write farther.'}</div>
+                    </Link>
+                </div>
             </div>
         </main>
     );

@@ -327,11 +327,8 @@ export function ArenaRunner(props: {
                     <div className="flex items-center gap-2">
                         {controlsEnabled && (
                             <>
-                                <Button size="sm" onClick={run} disabled={!hasParam || status === 'running'}>
-                                    {s.common.run}
-                                </Button>
-                                <Button size="sm" variant="secondary" onClick={stop} disabled={status !== 'running'}>
-                                    {s.common.stop}
+                                <Button size="sm" onClick={status === 'running' ? stop : run} disabled={!hasParam}>
+                                    {status === 'running' ? s.common.stop : s.common.run}
                                 </Button>
                                 <Button size="sm" variant="outline" onClick={reset}>
                                     {s.common.reset}
@@ -376,11 +373,8 @@ export function ArenaRunner(props: {
 
                         {controlsEnabled && controlsPlacement === 'steering' && (
                             <div className="mt-3 flex flex-wrap items-center gap-2">
-                                <Button size="sm" onClick={run} disabled={!hasParam || status === 'running'}>
-                                    {s.common.run}
-                                </Button>
-                                <Button size="sm" variant="secondary" onClick={stop} disabled={status !== 'running'}>
-                                    {s.common.stop}
+                                <Button size="sm" onClick={status === 'running' ? stop : run} disabled={!hasParam}>
+                                    {status === 'running' ? s.common.stop : s.common.run}
                                 </Button>
                                 <Button size="sm" variant="outline" onClick={reset}>
                                     {s.common.reset}
