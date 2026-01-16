@@ -1,0 +1,1 @@
+ALTER TABLE "runs" ADD COLUMN "level_index" integer NOT NULL;

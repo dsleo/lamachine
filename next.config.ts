@@ -1,17 +1,6 @@
 import type { NextConfig } from 'next';
 
-const isProd = process.env.NODE_ENV === 'production';
-
 const nextConfig: NextConfig = {
-  // Enable static export for GitHub Pages
-  output: 'export',
-
-  // Serve from /contrainte when deployed to GitHub Pages
-  basePath: isProd ? '/contrainte' : '',
-  assetPrefix: isProd ? '/contrainte/' : '',
-
-  // Optional: nicer static URLs
-  trailingSlash: true,
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -19,8 +8,8 @@ const nextConfig: NextConfig = {
     ignoreDuringBuilds: true,
   },
   images: {
-    // In static export on GitHub Pages there is no Image Optimization API,
-    // so disable optimization and serve images as plain <img> tags.
+    // Keep things simple: no special image setup needed for this app.
+    // (Vercel supports the Image Optimization API, but we primarily use <img> anyway.)
     unoptimized: true,
     remotePatterns: [
       {
@@ -42,10 +31,6 @@ const nextConfig: NextConfig = {
         pathname: '/**',
       },
     ],
-  },
-  env: {
-    // Used on the client to build correct asset URLs under GitHub Pages basePath
-    NEXT_PUBLIC_BASE_PATH: isProd ? '/contrainte' : '',
   },
 };
 

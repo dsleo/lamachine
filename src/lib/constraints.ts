@@ -49,6 +49,14 @@ export type Constraint = {
   ) => { isValid: boolean; error?: string; meta?: Record<string, unknown> };
 };
 
+export type ConstraintId = Constraint['id'];
+
+export function getConstraintById(id: ConstraintId): Constraint {
+  const c = CONSTRAINTS.find((x) => x.id === id);
+  if (!c) throw new Error(`Unknown constraint: ${id}`);
+  return c;
+}
+
 export const CONSTRAINTS: readonly Constraint[] = [
   {
     id: 'lipogram',
