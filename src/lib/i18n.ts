@@ -20,7 +20,7 @@ const STRINGS = {
             stop: 'Stop',
             reset: 'Reset',
             output: 'Sortie',
-            distanceSurvived: 'Distance survivée',
+            distanceSurvived: 'Distance parcourue',
             chars: 'caractères',
             words: 'mots',
             steering: 'Pilotage du prompt',

@@ -86,14 +86,11 @@ export default function DailyPage() {
         <main className="min-h-screen w-full bg-background">
             <div className="mx-auto w-full max-w-5xl space-y-8 p-6 sm:p-10">
                 <header className="space-y-3">
-                    <h1 className="text-4xl font-bold tracking-tight">
-                        {lang === 'fr' ? 'Contrainte du jour' : 'Daily constraint'}
-                    </h1>
+                    <h1 className="text-4xl font-bold tracking-tight">{sentence}</h1>
                 </header>
 
                 <section className="rounded-2xl border bg-card p-6 shadow-sm">
                     <div className="space-y-2">
-                        <div className="text-2xl font-semibold leading-tight">{sentence}</div>
                         <div className="text-sm text-muted-foreground">{explanation}</div>
                     </div>
 

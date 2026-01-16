@@ -79,6 +79,7 @@ export function ArenaRunner(props: {
 
     const [status, setStatus] = useState<RunnerStatus>('ready');
     const [text, setText] = useState('');
+    const [lastValidLength, setLastValidLength] = useState(0);
     const [steering, setSteering] = useState('');
     const [quip, setQuip] = useState<string>('');
     const [lastQuip, setLastQuip] = useState<string | null>(null);
@@ -93,9 +94,6 @@ export function ArenaRunner(props: {
         onStatusChange?.(status);
     }, [status]);
 
-    const chars = text.length;
-    const words = useMemo(() => countWords(text), [text]);
-
     const requiresParam = constraint.parameter.kind !== 'none';
     const hasParam = !requiresParam || !!param;
 
@@ -108,6 +106,7 @@ export function ArenaRunner(props: {
     const reset = () => {
         stop();
         setText('');
+        setLastValidLength(0);
         onTextChange?.('');
         setLastError(null);
         setStatus('ready');
@@ -151,7 +150,34 @@ export function ArenaRunner(props: {
             if (!hasParam) return;
 
             const res = constraint.validate(currentText, param);
-            if (!res.isValid) {
+
+            if (res.isValid) {
+                setLastValidLength(currentText.length);
+                return;
+            }
+
+            const findLastValidPrefixLength = () => {
+                // We assume monotonicity: once the constraint is broken at some point,
+                // appending more text cannot "fix" the earlier violation.
+                let lo = 0;
+                let hi = currentText.length;
+
+                const isValidAt = (n: number) => constraint.validate(currentText.slice(0, n), param).isValid;
+
+                while (lo < hi) {
+                    const mid = Math.ceil((lo + hi) / 2);
+                    if (isValidAt(mid)) lo = mid;
+                    else hi = mid - 1;
+                }
+                return lo;
+            };
+
+            {
+                const lastOk = findLastValidPrefixLength();
+                setLastValidLength(lastOk);
+                const trimmed = currentText.slice(0, lastOk);
+                setText(trimmed);
+                onTextChange?.(trimmed);
                 setLastError(res.error ?? 'Constraint violation');
                 stop();
                 setStatus('failed');
@@ -161,6 +187,9 @@ export function ArenaRunner(props: {
             }
         }, delay);
     };
+
+    const chars = text.length;
+    const words = useMemo(() => countWords(text), [text]);
 
     const run = async () => {
         if (!hasParam) return;

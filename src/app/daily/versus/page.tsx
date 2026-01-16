@@ -96,7 +96,7 @@ export default function DailyVersusPage() {
                             <>
                                 <div className="font-medium">Comment jouer</div>
                                 <ol className="list-decimal pl-5 space-y-1 text-muted-foreground">
-                                    <li>Écrivez votre texte à gauche. L’app empêche les erreurs de contrainte.</li>
+                                    <li>Écrivez votre texte à gauche.</li>
                                     <li>À droite, la Machine écrit sous la même contrainte.</li>
                                     <li>Quand votre texte est prêt, cliquez “Valider & envoyer”.</li>
                                     <li>Le texte est accepté seulement s’il respecte la contrainte et “fait sens”.</li>
@@ -106,7 +106,7 @@ export default function DailyVersusPage() {
                             <>
                                 <div className="font-medium">How to play</div>
                                 <ol className="list-decimal pl-5 space-y-1 text-muted-foreground">
-                                    <li>Write your text on the left. The app prevents constraint mistakes.</li>
+                                    <li>Write your text on the left.</li>
                                     <li>On the right, the Machine writes under the same constraint.</li>
                                     <li>When your text is ready, click “Validate & submit”.</li>
                                     <li>Accepted only if it follows the constraint and actually makes sense.</li>
@@ -149,7 +149,6 @@ export default function DailyVersusPage() {
                                 autoRun
                                 controlsEnabled={false}
                             />
-                            <div className="text-xs text-muted-foreground">{machineText.length} {s.common.chars}</div>
                         </CardContent>
                     </Card>
                 </div>
