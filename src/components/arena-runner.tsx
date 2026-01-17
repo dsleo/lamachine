@@ -18,7 +18,9 @@ type RunnerStatus = 'ready' | 'running' | 'stopped' | 'failed';
 const WORD_BASED_CONSTRAINTS = new Set<Constraint['id']>(['tautogram', 'alliteration', 'snowball']);
 
 function endsWithBoundary(text: string) {
-    return /[\s.,;:!?]$/.test(text);
+    // Treat apostrophes and hyphens as separators too (e.g. m'avertir, porte-monnaie)
+    // Includes straight and curly apostrophes.
+    return /[\s.,;:!?\-"'’]$/.test(text);
 }
 
 function buildSystemPrompt(args: {
@@ -26,8 +28,9 @@ function buildSystemPrompt(args: {
     constraint: Constraint;
     param: string;
     steering?: string;
+    minCharsToBeat?: number;
 }) {
-    const { lang, constraint, param, steering } = args;
+    const { lang, constraint, param, steering, minCharsToBeat } = args;
     const constraintLine =
         constraint.parameter.kind === 'none'
             ? `Constraint: ${constraint.name} — ${constraint.description}`
@@ -42,14 +45,21 @@ function buildSystemPrompt(args: {
         ? `User steering (follow if compatible with the constraint):\n${steering.trim()}`
         : '';
 
+    const versusGoalBlock =
+        typeof minCharsToBeat === 'number' && Number.isFinite(minCharsToBeat) && minCharsToBeat > 0
+            ? `Versus goal: produce a coherent text STRICTLY longer than ${Math.floor(minCharsToBeat)} characters.`
+            : '';
+
     return [
         'You are La Machine: a writing model challenged to obey a formal Oulipo-like constraint.',
         'Your primary objective is to produce as much text as possible while NEVER violating the constraint.',
+        'Text MUST make sense: it should be readable, grammatical, and globally coherent (poetic is OK, gibberish is NOT).',
         'If you are unsure, choose safer words. Prefer short sentences. Avoid risky letters/starts.',
         'Do not mention the rules or self-commentary. Only output the text itself (no Markdown).',
         langLine,
         constraintLine,
         steeringBlock,
+        versusGoalBlock,
     ]
         .filter(Boolean)
         .join('\n\n');
@@ -68,6 +78,7 @@ export function ArenaRunner(props: {
     chrome?: boolean;
     headerEnabled?: boolean;
     statusEnabled?: boolean;
+    minCharsToBeat?: number;
 }) {
     const {
         lang,
@@ -82,6 +93,7 @@ export function ArenaRunner(props: {
         chrome = true,
         headerEnabled = true,
         statusEnabled = true,
+        minCharsToBeat,
     } = props;
     const s = t(lang);
 
@@ -100,7 +112,7 @@ export function ArenaRunner(props: {
     useEffect(() => {
         statusRef.current = status;
         onStatusChange?.(status);
-    }, [status]);
+    }, [status, onStatusChange]);
 
     const requiresParam = constraint.parameter.kind !== 'none';
     const hasParam = !requiresParam || !!param;
@@ -217,6 +229,7 @@ export function ArenaRunner(props: {
             constraint,
             param,
             steering: steeringEnabled ? steering : undefined,
+            minCharsToBeat,
         });
 
         // Ask for a continuation-style output.
@@ -401,3 +414,4 @@ export function ArenaRunner(props: {
         </div>
     );
 }
+

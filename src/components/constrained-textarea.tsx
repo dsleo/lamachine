@@ -10,7 +10,9 @@ import { cn } from '@/lib/utils';
 const WORD_BASED_CONSTRAINTS = new Set<Constraint['id']>(['tautogram', 'alliteration', 'snowball']);
 
 function endsWithBoundary(text: string) {
-    return /[\s.,;:!?]$/.test(text);
+    // Treat apostrophes and hyphens as separators too (e.g. m'avertir, porte-monnaie)
+    // Includes straight and curly apostrophes.
+    return /[\s.,;:!?\-"'’]$/.test(text);
 }
 
 export type ValidationResult = {
@@ -112,3 +114,4 @@ export function ConstrainedTextarea(props: {
         </div>
     );
 }
+
