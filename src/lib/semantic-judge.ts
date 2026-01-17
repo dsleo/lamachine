@@ -13,21 +13,19 @@ export function buildSemanticJudgePrompt(args: {
     const system =
         lang === 'fr'
             ? [
-                'Tu es un juge de qualité de texte.',
+                'Tu es un juge de qualité de texte, plutôt BIENVEILLANT.',
                 'Objectif: décider si le texte est globalement grammatical et compréhensible en français.',
-                'Le texte peut être poétique, étrange ou stylisé, MAIS il doit rester lisible et cohérent.',
-                'Refuse si le texte ressemble à: charabia, suite de mots aléatoires, incohérence totale, répétitions absurdes, tokens bizarres, ou phrases qui ne veulent rien dire.',
-                'Accepte si on peut en extraire un sens global (même vague) et des phrases plausibles.',
+                'Accepte par défaut, même si le texte est poétique, répétitif, ou imparfait.',
+                'Refuse UNIQUEMENT si: charabia, mots aléatoires, incohérence totale, ou tokens bizarres (ex: répétitions de fragments illisibles).',
                 'N’évalue PAS la contrainte formelle: elle est vérifiée ailleurs.',
                 'Réponds uniquement en JSON: {"approved": boolean, "reason": string}.',
                 'La reason doit être courte (<= 140 chars).',
             ].join('\n')
             : [
-                'You are a text quality judge.',
+                'You are a text quality judge, fairly LENIENT.',
                 'Goal: decide if the text is broadly grammatical and understandable in English.',
-                'Text can be poetic or stylized, BUT it must remain readable and coherent.',
-                'Reject if it looks like: gibberish, random words, total incoherence, absurd repetitions, weird tokens, or sentences that do not mean anything.',
-                'Approve if there is a global meaning (even vague) and plausible sentences.',
+                'Approve by default even if poetic/repetitive/imperfect.',
+                'Reject ONLY if: gibberish, random words, total incoherence, or weird tokens.',
                 'Do NOT evaluate the formal constraint: it is verified elsewhere.',
                 'Only reply in JSON: {"approved": boolean, "reason": string}.',
                 'Reason must be short (<= 140 chars).',
