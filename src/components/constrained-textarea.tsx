@@ -7,6 +7,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 
+const WORD_BASED_CONSTRAINTS = new Set<Constraint['id']>(['tautogram', 'alliteration', 'snowball']);
+
+function endsWithBoundary(text: string) {
+    return /[\s.,;:!?]$/.test(text);
+}
+
 export type ValidationResult = {
     isValid: boolean;
     error?: string;
@@ -58,6 +64,17 @@ export function ConstrainedTextarea(props: {
     }, [constraint, param, hasParam]);
 
     const handleChange = (next: string) => {
+        // For word-based constraints, avoid validating mid-word, which causes
+        // false negatives while the user is still typing the current token.
+        if (WORD_BASED_CONSTRAINTS.has(constraint.id)) {
+            const isDeleting = next.length < value.length;
+            if (!isDeleting && next.length > 0 && !endsWithBoundary(next)) {
+                setError(null);
+                onChange(next);
+                return;
+            }
+        }
+
         const res = validate(next);
         onValidation?.(res);
 

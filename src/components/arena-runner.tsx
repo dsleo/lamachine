@@ -15,6 +15,12 @@ import { cn } from '@/lib/utils';
 
 type RunnerStatus = 'ready' | 'running' | 'stopped' | 'failed';
 
+const WORD_BASED_CONSTRAINTS = new Set<Constraint['id']>(['tautogram', 'alliteration', 'snowball']);
+
+function endsWithBoundary(text: string) {
+    return /[\s.,;:!?]$/.test(text);
+}
+
 function buildSystemPrompt(args: {
     lang: Lang;
     constraint: Constraint;
@@ -143,9 +149,13 @@ export function ArenaRunner(props: {
             window.clearTimeout(validateTimerRef.current);
         }
 
-        // Validate only on boundaries for word-based constraints.
-        const shouldValidateNow = /[\s.,;:!?]$/.test(currentText) || currentText.length < 10;
-        const delay = shouldValidateNow ? 0 : 80;
+        // Word-based constraints should only be checked after a complete word (space/punctuation)
+        // to avoid false failures mid-token.
+        if (WORD_BASED_CONSTRAINTS.has(constraint.id)) {
+            if (!endsWithBoundary(currentText) && currentText.length > 0) return;
+        }
+
+        const delay = 50;
 
         validateTimerRef.current = window.setTimeout(() => {
             if (constraint.id === 'palindrome') return; // not meaningful while streaming
