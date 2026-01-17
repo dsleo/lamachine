@@ -24,7 +24,12 @@ export async function GET() {
              where table_schema = 'public'
              order by table_name;`
         );
-        const tables: string[] = (r.rows ?? []).map((x: any) => String(x.table_name));
+        const tables: string[] = (r.rows ?? []).map((x: unknown) => {
+            if (x && typeof x === 'object' && 'table_name' in x) {
+                return String((x as { table_name: unknown }).table_name);
+            }
+            return '';
+        }).filter(Boolean);
 
         const required = ['runs', 'daily_submissions'];
         const missing = required.filter((t) => !tables.includes(t));

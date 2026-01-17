@@ -1,10 +1,10 @@
 "use client";
 
 import { useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useSettings } from '@/hooks/use-settings';
-import { t } from '@/lib/i18n';
 import { getDailyChallenge, getParisDayKey } from '@/lib/daily';
-import { getConstraintById } from '@/lib/constraints';
+import { getConstraintById, type ConstraintId } from '@/lib/constraints';
 import { formatDayKeyDisplay } from '@/lib/time';
 import { ArenaRunner } from '@/components/arena-runner';
 import { Card, CardContent } from '@/components/ui/card';
@@ -12,9 +12,9 @@ import { SubmitScoreDialog } from '@/components/submit-score-dialog';
 import { useToast } from '@/hooks/use-toast';
 
 export default function DailyCoachPage() {
+    const router = useRouter();
     const { settings } = useSettings();
     const lang = settings.lang;
-    const s = t(lang);
     const { toast } = useToast();
 
     const dayKey = useMemo(() => getParisDayKey(), []);
@@ -42,7 +42,7 @@ export default function DailyCoachPage() {
             const raw = await res.text().catch(() => '');
             const json = (() => {
                 try {
-                    return raw ? (JSON.parse(raw) as any) : null;
+                    return raw ? (JSON.parse(raw) as { approved?: boolean; reason?: string }) : null;
                 } catch {
                     return null;
                 }
@@ -54,6 +54,9 @@ export default function DailyCoachPage() {
 
             if (json?.approved) {
                 toast({ title: lang === 'fr' ? '✅ Accepté' : '✅ Accepted', description: json.reason });
+                router.push(
+                    `/leaderboard?celebrate=1&mode=coach&dayKey=${encodeURIComponent(dayKey)}&chars=${text.length}&constraintId=${encodeURIComponent(challenge.constraintId satisfies ConstraintId)}&param=${encodeURIComponent(challenge.param ?? '')}`
+                );
             } else {
                 toast({ title: lang === 'fr' ? '❌ Refusé' : '❌ Rejected', description: json?.reason ?? '' });
             }

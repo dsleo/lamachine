@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import type { Lang } from '@/lib/i18n';
 import { t } from '@/lib/i18n';
 import { useSettings } from '@/hooks/use-settings';
@@ -9,6 +10,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { getConstraintById } from '@/lib/constraints';
+import { parseCelebrationQuery } from '@/lib/celebration';
+import { CelebrationBanner } from '@/components/celebration-banner';
+import { CelebrationConfetti } from '@/components/celebration-confetti';
+import type { ConstraintId } from '@/lib/constraints';
 
 type Mode = 'coach' | 'versus';
 
@@ -25,7 +30,7 @@ type Row = {
 
 function formatConstraintLabel(args: { constraintId: string; param: string }): string {
     try {
-        const c = getConstraintById(args.constraintId as any);
+        const c = getConstraintById(args.constraintId as ConstraintId);
         return args.param ? `${c.name} en ${args.param}` : c.name;
     } catch {
         return args.param ? `${args.constraintId} ${args.param}` : args.constraintId;
@@ -33,9 +38,32 @@ function formatConstraintLabel(args: { constraintId: string; param: string }): s
 }
 
 export default function LeaderboardPage() {
+    const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
     const { settings, update } = useSettings();
     const lang = settings.lang;
     const s = t(lang);
+
+    const celebrationQuery = useMemo(() => parseCelebrationQuery(searchParams), [searchParams]);
+
+    // One-shot guard so confetti doesn't re-run on re-renders.
+    const [showCelebrate, setShowCelebrate] = useState(false);
+    useEffect(() => {
+        if (celebrationQuery.celebrate) setShowCelebrate(true);
+    }, [celebrationQuery.celebrate]);
+
+    const constraintLabel = useMemo(() => {
+        if (!celebrationQuery.constraintId) return undefined;
+        try {
+            const c = getConstraintById(celebrationQuery.constraintId as ConstraintId);
+            const p = celebrationQuery.param ?? '';
+            return p ? `${c.name} en ${p}` : c.name;
+        } catch {
+            const p = celebrationQuery.param ?? '';
+            return p ? `${celebrationQuery.constraintId} ${p}` : celebrationQuery.constraintId;
+        }
+    }, [celebrationQuery.constraintId, celebrationQuery.param]);
 
     const [mode, setMode] = useState<Mode>('coach');
     const [rows, setRows] = useState<Row[]>([]);
@@ -75,6 +103,25 @@ export default function LeaderboardPage() {
     return (
         <main className="min-h-screen w-full bg-background">
             <div className="mx-auto w-full max-w-5xl space-y-6 p-4 sm:p-8">
+                <CelebrationConfetti run={showCelebrate} />
+
+                {showCelebrate && (
+                    <CelebrationBanner
+                        lang={lang}
+                        data={{
+                            mode: celebrationQuery.mode,
+                            dayKey: celebrationQuery.dayKey,
+                            chars: celebrationQuery.chars,
+                            constraintLabel,
+                        }}
+                        onClose={() => {
+                            setShowCelebrate(false);
+                            // Remove celebrate params from URL so refresh doesn't re-trigger.
+                            router.replace(pathname);
+                        }}
+                    />
+                )}
+
                 <header className="space-y-2">
                     <h1 className="text-3xl font-bold">{title}</h1>
                 </header>
