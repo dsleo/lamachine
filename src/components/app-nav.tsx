@@ -28,6 +28,7 @@ export function AppNav() {
                             Menu
                         </Link>
                     </Button>
+
                     <Button
                         variant="ghost"
                         size="sm"
@@ -36,6 +37,12 @@ export function AppNav() {
                     >
                         <ArrowLeft className="mr-2 h-4 w-4" />
                         Back
+                    </Button>
+
+                    <Button variant="ghost" size="sm" asChild>
+                        <Link href="/leaderboard" aria-label="Leaderboard">
+                            Leaderboard
+                        </Link>
                     </Button>
                 </div>
 
@@ -46,4 +53,3 @@ export function AppNav() {
         </nav>
     );
 }
-
