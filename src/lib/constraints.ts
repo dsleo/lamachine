@@ -5,7 +5,12 @@ export const CONSONANTS: readonly string[] = [
 ];
 export const ALPHABET: readonly string[] = [...VOWELS, ...CONSONANTS].sort();
 
-export const WORD_REGEX = /[\w'-]+(?<!-)/g;
+// Unicode-aware word matcher.
+// - `\p{L}` matches any letter (including accented letters)
+// - `\p{N}` matches any number
+// Keep apostrophes/hyphens inside words (e.g. l'art, aujourd'hui, porte-monnaie)
+// Avoid trailing hyphen.
+export const WORD_REGEX = /[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*/gu;
 
 // Normalize French letters by stripping accents/diacritics so that
 // "é, è, ê, ë" are treated as "e", "à, â" as "a", "ù, û" as "u", etc.
