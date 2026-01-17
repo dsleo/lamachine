@@ -92,26 +92,30 @@ export async function POST(req: Request) {
         return Response.json({ ok: false, approved: false, reason }, { status: 200 });
     }
 
-    const inserted = await db
-        .insert(dailySubmissions)
-        .values({
-            dayKey: body.dayKey,
-            lang: body.lang,
-            mode: body.mode,
-            constraintId: challenge.constraintId,
-            param: challenge.param,
-            nickname,
-            text: body.text,
-            chars: body.text.length,
-            semanticApproved: 1,
-            semanticReason: reason,
-        })
-        .returning({
-            id: dailySubmissions.id,
-            createdAt: dailySubmissions.createdAt,
-            nickname: dailySubmissions.nickname,
-            chars: dailySubmissions.chars,
-        });
+    try {
+        const inserted = await db
+            .insert(dailySubmissions)
+            .values({
+                dayKey: body.dayKey,
+                lang: body.lang,
+                mode: body.mode,
+                constraintId: challenge.constraintId,
+                param: challenge.param,
+                nickname,
+                text: body.text,
+                chars: body.text.length,
+                semanticApproved: 1,
+                semanticReason: reason,
+            })
+            .returning({
+                id: dailySubmissions.id,
+                createdAt: dailySubmissions.createdAt,
+                nickname: dailySubmissions.nickname,
+                chars: dailySubmissions.chars,
+            });
 
-    return Response.json({ ok: true, approved: true, reason, row: inserted[0] });
+        return Response.json({ ok: true, approved: true, reason, row: inserted[0] });
+    } catch (e) {
+        return jsonError(e instanceof Error ? e.message : 'DB insert failed', 500);
+    }
 }

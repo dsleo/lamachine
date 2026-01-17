@@ -30,27 +30,37 @@ export async function GET(req: Request) {
 
     const q = parsed.data;
 
-    const rows = await db
-        .select({
-            id: dailySubmissions.id,
-            dayKey: dailySubmissions.dayKey,
-            createdAt: dailySubmissions.createdAt,
-            nickname: dailySubmissions.nickname,
-            chars: dailySubmissions.chars,
-            text: dailySubmissions.text,
-            constraintId: dailySubmissions.constraintId,
-            param: dailySubmissions.param,
-        })
-        .from(dailySubmissions)
-        .where(
-            and(
-                eq(dailySubmissions.lang, q.lang),
-                eq(dailySubmissions.mode, q.mode),
-                eq(dailySubmissions.semanticApproved, 1)
+    try {
+        const rows = await db
+            .select({
+                id: dailySubmissions.id,
+                dayKey: dailySubmissions.dayKey,
+                createdAt: dailySubmissions.createdAt,
+                nickname: dailySubmissions.nickname,
+                chars: dailySubmissions.chars,
+                text: dailySubmissions.text,
+                constraintId: dailySubmissions.constraintId,
+                param: dailySubmissions.param,
+            })
+            .from(dailySubmissions)
+            .where(
+                and(
+                    eq(dailySubmissions.lang, q.lang),
+                    eq(dailySubmissions.mode, q.mode),
+                    eq(dailySubmissions.semanticApproved, 1)
+                )
             )
-        )
-        .orderBy(desc(dailySubmissions.chars), desc(dailySubmissions.createdAt))
-        .limit(q.limit);
+            .orderBy(desc(dailySubmissions.chars), desc(dailySubmissions.createdAt))
+            .limit(q.limit);
 
-    return Response.json({ ok: true, rows });
+        return Response.json({ ok: true, rows });
+    } catch (e) {
+        return Response.json(
+            {
+                ok: false,
+                reason: e instanceof Error ? e.message : 'DB query failed',
+            },
+            { status: 500 }
+        );
+    }
 }
