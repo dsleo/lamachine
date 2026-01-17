@@ -107,9 +107,9 @@ export default function DailyVersusPage() {
                                     <li>Écrivez votre texte.</li>
                                     <li>Cliquez “Au tour de la Machine”.</li>
                                 </ol>
-                                <div className="text-muted-foreground">
-                                    Si votre texte respecte la contrainte et est plus long que celui de la Machine, vous avez gagné.
-                                </div>
+                                <ol start={3} className="list-decimal pl-5 space-y-1 text-muted-foreground">
+                                    <li>Si votre texte respecte la contrainte et est plus long que celui de la Machine, vous avez gagné !</li>
+                                </ol>
                             </>
                         ) : (
                             <>
