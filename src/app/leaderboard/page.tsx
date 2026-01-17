@@ -6,27 +6,38 @@ import { t } from '@/lib/i18n';
 import { useSettings } from '@/hooks/use-settings';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { getConstraintById } from '@/lib/constraints';
 
-type Period = 'all' | 'week' | 'month';
-type Mode = 'arena' | 'versus';
+type Mode = 'coach' | 'versus';
 
 type Row = {
     id: string;
     createdAt: string;
     nickname: string;
-    totalScore: number;
-    levelsCleared: number;
-    levelIndex?: number;
-    levelScore: number;
+    chars: number;
+    dayKey: string;
+    text: string;
+    constraintId: string;
+    param: string;
 };
+
+function formatConstraintLabel(args: { constraintId: string; param: string }): string {
+    try {
+        const c = getConstraintById(args.constraintId as any);
+        return args.param ? `${c.name} en ${args.param}` : c.name;
+    } catch {
+        return args.param ? `${args.constraintId} ${args.param}` : args.constraintId;
+    }
+}
 
 export default function LeaderboardPage() {
     const { settings, update } = useSettings();
     const lang = settings.lang;
     const s = t(lang);
 
-    const [mode, setMode] = useState<Mode>('arena');
-    const [period, setPeriod] = useState<Period>('all');
+    const [mode, setMode] = useState<Mode>('coach');
     const [rows, setRows] = useState<Row[]>([]);
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
@@ -40,7 +51,7 @@ export default function LeaderboardPage() {
             setError(null);
             try {
                 const res = await fetch(
-                    `/api/leaderboard/list?campaignId=v1&mode=${mode}&lang=${lang}&period=${period}&limit=25`,
+                    `/api/daily/leaderboard/list?mode=${mode}&lang=${lang}&limit=10`,
                     { cache: 'no-store' }
                 );
                 if (!res.ok) {
@@ -59,29 +70,21 @@ export default function LeaderboardPage() {
         return () => {
             cancelled = true;
         };
-    }, [lang, mode, period]);
+    }, [lang, mode]);
 
     return (
         <main className="min-h-screen w-full bg-background">
             <div className="mx-auto w-full max-w-5xl space-y-6 p-4 sm:p-8">
                 <header className="space-y-2">
                     <h1 className="text-3xl font-bold">{title}</h1>
-                    <p className="text-sm text-muted-foreground">
-                        {lang === 'fr'
-                            ? 'Classements anonymes type arcade (campagne).'
-                            : 'Arcade-style anonymous rankings (campaign).'}
-                    </p>
                 </header>
 
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-base">Filtres</CardTitle>
-                    </CardHeader>
-                    <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                        <div className="space-y-2">
-                            <div className="text-xs text-muted-foreground">{s.common.language}</div>
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm text-muted-foreground">{s.common.language}</span>
                             <Select value={lang} onValueChange={(v) => update({ lang: v as Lang })}>
-                                <SelectTrigger>
+                                <SelectTrigger className="h-9 w-[140px]">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -90,39 +93,31 @@ export default function LeaderboardPage() {
                                 </SelectContent>
                             </Select>
                         </div>
+                    </div>
 
-                        <div className="space-y-2">
-                            <div className="text-xs text-muted-foreground">Mode</div>
-                            <Select value={mode} onValueChange={(v) => setMode(v as Mode)}>
-                                <SelectTrigger>
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="arena">{s.nav.arena}</SelectItem>
-                                    <SelectItem value="versus">{s.nav.versus}</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div className="space-y-2">
-                            <div className="text-xs text-muted-foreground">Période</div>
-                            <Select value={period} onValueChange={(v) => setPeriod(v as Period)}>
-                                <SelectTrigger>
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All-time</SelectItem>
-                                    <SelectItem value="week">This week</SelectItem>
-                                    <SelectItem value="month">This month</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    </CardContent>
-                </Card>
+                    <div className="flex items-center justify-between gap-3 rounded-full border bg-card p-1">
+                        <Button
+                            size="sm"
+                            variant={mode === 'coach' ? 'default' : 'ghost'}
+                            className="rounded-full"
+                            onClick={() => setMode('coach')}
+                        >
+                            {lang === 'fr' ? 'Coach la Machine' : 'Coach'}
+                        </Button>
+                        <Button
+                            size="sm"
+                            variant={mode === 'versus' ? 'default' : 'ghost'}
+                            className="rounded-full"
+                            onClick={() => setMode('versus')}
+                        >
+                            {lang === 'fr' ? 'Battre la Machine' : 'Versus'}
+                        </Button>
+                    </div>
+                </div>
 
                 <Card>
                     <CardHeader>
-                        <CardTitle className="text-base">Top 25</CardTitle>
+                        <CardTitle className="text-base">Top 10</CardTitle>
                     </CardHeader>
                     <CardContent>
                         {loading && <div className="text-sm text-muted-foreground">Loading…</div>}
@@ -134,10 +129,9 @@ export default function LeaderboardPage() {
                                         <tr className="text-left text-muted-foreground">
                                             <th className="py-2 pr-3">#</th>
                                             <th className="py-2 pr-3">Nick</th>
-                                            <th className="py-2 pr-3">Score</th>
-                                            <th className="py-2 pr-3">Levels</th>
-                                            <th className="py-2 pr-3">Level score</th>
-                                            <th className="py-2 pr-3">Date</th>
+                                            <th className="py-2 pr-3">Chars</th>
+                                            <th className="py-2 pr-3">Texte</th>
+                                            <th className="py-2 pr-3">Day</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -145,15 +139,37 @@ export default function LeaderboardPage() {
                                             <tr key={r.id} className="border-t">
                                                 <td className="py-2 pr-3">{i + 1}</td>
                                                 <td className="py-2 pr-3 font-medium">{r.nickname}</td>
-                                                <td className="py-2 pr-3">{r.totalScore}</td>
-                                                <td className="py-2 pr-3">{r.levelsCleared}{r.levelIndex ? ` (L${r.levelIndex})` : ''}</td>
-                                                <td className="py-2 pr-3">{r.levelScore}</td>
-                                                <td className="py-2 pr-3">{new Date(r.createdAt).toLocaleString()}</td>
+                                                <td className="py-2 pr-3">{r.chars}</td>
+                                                <td className="py-2 pr-3">
+                                                    <Dialog>
+                                                        <DialogTrigger asChild>
+                                                            <Button size="sm" variant="secondary">{lang === 'fr' ? 'Voir' : 'View'}</Button>
+                                                        </DialogTrigger>
+                                                        <DialogContent>
+                                                            <DialogHeader>
+                                                                <DialogTitle>
+                                                                    {r.nickname} • {r.chars} {lang === 'fr' ? 'caractères' : 'chars'}
+                                                                </DialogTitle>
+                                                            </DialogHeader>
+
+                                                            <div className="text-xs text-muted-foreground">
+                                                                {formatConstraintLabel({ constraintId: r.constraintId, param: r.param })}
+                                                                <span className="opacity-60"> • </span>
+                                                                <span className="tabular-nums">{r.dayKey}</span>
+                                                            </div>
+
+                                                            <div className="rounded-md border bg-muted/30 p-3 text-sm whitespace-pre-wrap">
+                                                                {r.text}
+                                                            </div>
+                                                        </DialogContent>
+                                                    </Dialog>
+                                                </td>
+                                                <td className="py-2 pr-3 tabular-nums">{r.dayKey}</td>
                                             </tr>
                                         ))}
                                         {rows.length === 0 && (
                                             <tr>
-                                                <td className="py-3 text-muted-foreground" colSpan={6}>
+                                                <td className="py-3 text-muted-foreground" colSpan={5}>
                                                     {lang === 'fr'
                                                         ? 'Aucun score pour l’instant.'
                                                         : 'No scores yet.'}
