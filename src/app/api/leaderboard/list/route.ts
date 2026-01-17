@@ -4,6 +4,8 @@ import { runs } from '@/server/db/schema';
 import { and, desc, eq, gte } from 'drizzle-orm';
 import { startOfMonth, startOfWeek } from '@/lib/time';
 
+export const runtime = 'nodejs';
+
 const QuerySchema = z.object({
     campaignId: z.literal('v1').default('v1'),
     mode: z.enum(['arena', 'versus']),

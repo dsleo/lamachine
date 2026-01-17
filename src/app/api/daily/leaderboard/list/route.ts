@@ -3,6 +3,8 @@ import { db } from '@/server/db/client';
 import { dailySubmissions } from '@/server/db/schema';
 import { and, desc, eq } from 'drizzle-orm';
 
+export const runtime = 'nodejs';
+
 const QuerySchema = z.object({
     mode: z.enum(['coach', 'versus']),
     // Keep lang filter for now to avoid mixing leaderboards.

@@ -4,6 +4,8 @@ import { runs } from '@/server/db/schema';
 import { getLevel, computeTotalScore, scoreTimedPalindrome, levelConstraint } from '@/lib/campaign';
 import { isValidNickname, normalizeNickname } from '@/lib/nickname';
 
+export const runtime = 'nodejs';
+
 const BodySchema = z.object({
     campaignId: z.literal('v1'),
     lang: z.enum(['fr', 'en']),

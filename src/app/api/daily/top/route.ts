@@ -3,6 +3,8 @@ import { db } from '@/server/db/client';
 import { dailySubmissions } from '@/server/db/schema';
 import { and, desc, eq } from 'drizzle-orm';
 
+export const runtime = 'nodejs';
+
 const QuerySchema = z.object({
     dayKey: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     lang: z.enum(['fr', 'en']),
@@ -51,4 +53,3 @@ export async function GET(req: Request) {
 
     return Response.json({ ok: true, rows });
 }
-

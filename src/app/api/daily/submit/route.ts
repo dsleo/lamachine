@@ -9,6 +9,8 @@ import { buildSemanticJudgePrompt, type SemanticJudgeResult } from '@/lib/semant
 import { tryParseSemanticJudgeJson } from '@/lib/semantic-judge';
 import { DEFAULT_MODEL } from '@/lib/models';
 
+export const runtime = 'nodejs';
+
 function jsonError(message: string, status: number) {
     return Response.json({ ok: false, reason: message }, { status });
 }
