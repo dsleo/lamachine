@@ -68,28 +68,33 @@ export async function POST(req: Request) {
         levelScore,
     });
 
-    const inserted = await db
-        .insert(runs)
-        .values({
-            campaignId: body.campaignId,
-            lang: body.lang,
-            mode: body.mode,
-            nickname,
-            levelIndex: body.levelIndex,
-            levelsCleared: body.levelsCleared,
-            levelScore,
-            totalScore,
-            totalChars,
-        })
-        .returning({
-            id: runs.id,
-            createdAt: runs.createdAt,
-            nickname: runs.nickname,
-            totalScore: runs.totalScore,
-            levelsCleared: runs.levelsCleared,
-            levelIndex: runs.levelIndex,
-            levelScore: runs.levelScore,
-        });
+    try {
+        const inserted = await db
+            .insert(runs)
+            .values({
+                campaignId: body.campaignId,
+                lang: body.lang,
+                mode: body.mode,
+                nickname,
+                levelIndex: body.levelIndex,
+                levelsCleared: body.levelsCleared,
+                levelScore,
+                totalScore,
+                totalChars,
+            })
+            .returning({
+                id: runs.id,
+                createdAt: runs.createdAt,
+                nickname: runs.nickname,
+                totalScore: runs.totalScore,
+                levelsCleared: runs.levelsCleared,
+                levelIndex: runs.levelIndex,
+                levelScore: runs.levelScore,
+            });
 
-    return Response.json({ ok: true, run: inserted[0] });
+        return Response.json({ ok: true, run: inserted[0] });
+    } catch (e) {
+        const msg = e instanceof Error ? e.message : 'DB insert failed';
+        return new Response(msg, { status: 500 });
+    }
 }

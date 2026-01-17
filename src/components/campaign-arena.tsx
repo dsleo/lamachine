@@ -75,8 +75,16 @@ export function CampaignArena() {
                 }),
             });
             if (!res.ok) {
-                throw new Error(await res.text().catch(() => 'Submit failed'));
+                const msg = await res.text().catch(() => 'Submit failed');
+                toast({
+                    title: lang === 'fr' ? 'Erreur' : 'Error',
+                    description: msg,
+                    variant: 'destructive',
+                });
+                throw new Error(msg);
             }
+
+            toast({ title: lang === 'fr' ? 'Score envoyé ✅' : 'Score submitted ✅' });
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Submit failed');
         } finally {

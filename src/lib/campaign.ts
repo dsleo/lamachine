@@ -1,5 +1,5 @@
 import type { Lang } from '@/lib/i18n';
-import { getConstraintById, type ConstraintId } from '@/components/constraint-picker';
+import { getConstraintById, type ConstraintId } from '@/lib/constraints';
 
 export type CampaignId = 'v1';
 
@@ -143,4 +143,3 @@ export function formatLevelGoal(level: LevelDefinition, lang: Lang): string {
     }
     return lang === 'fr' ? 'Objectif : écrire un palindrome le plus vite possible' : 'Goal: write a palindrome as fast as possible';
 }
-

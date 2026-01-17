@@ -6,6 +6,7 @@ import { isValidNickname, normalizeNickname } from '@/lib/nickname';
 import { getDailyChallenge } from '@/lib/daily';
 import { getConstraintById } from '@/lib/constraints';
 import { buildSemanticJudgePrompt, type SemanticJudgeResult } from '@/lib/semantic-judge';
+import { tryParseSemanticJudgeJson } from '@/lib/semantic-judge';
 import { DEFAULT_MODEL } from '@/lib/models';
 
 function jsonError(message: string, status: number) {
@@ -71,9 +72,14 @@ export async function POST(req: Request) {
         });
 
         const out = r.output_text?.trim() ?? '';
-        judge = JSON.parse(out) as SemanticJudgeResult;
+        judge = tryParseSemanticJudgeJson(out);
     } catch (e) {
         return jsonError(e instanceof Error ? e.message : 'LLM validation failed', 500);
+    }
+
+    // Fail-open: if the judge output is malformed, accept to avoid frustrating users.
+    if (!judge) {
+        judge = { approved: true, reason: body.lang === 'fr' ? 'OK' : 'OK' };
     }
 
     const approved = !!judge?.approved;

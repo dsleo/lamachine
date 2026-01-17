@@ -9,11 +9,13 @@ import { ArenaRunner } from '@/components/arena-runner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { SubmitScoreDialog } from '@/components/submit-score-dialog';
+import { useToast } from '@/hooks/use-toast';
 
 export function CampaignVersus() {
     const { settings } = useSettings();
     const lang = settings.lang;
     const s = t(lang);
+    const { toast } = useToast();
 
     const [levelIndex, setLevelIndex] = useState(1);
     const [levelsCleared, setLevelsCleared] = useState(0);
@@ -130,8 +132,16 @@ export function CampaignVersus() {
                 }),
             });
             if (!res.ok) {
-                throw new Error(await res.text().catch(() => 'Submit failed'));
+                const msg = await res.text().catch(() => 'Submit failed');
+                toast({
+                    title: lang === 'fr' ? 'Erreur' : 'Error',
+                    description: msg,
+                    variant: 'destructive',
+                });
+                throw new Error(msg);
             }
+
+            toast({ title: lang === 'fr' ? 'Score envoyé ✅' : 'Score submitted ✅' });
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Submit failed');
         } finally {
