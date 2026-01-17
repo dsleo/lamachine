@@ -5,6 +5,7 @@ import { useSettings } from '@/hooks/use-settings';
 import { t } from '@/lib/i18n';
 import { getDailyChallenge, getParisDayKey } from '@/lib/daily';
 import { getConstraintById } from '@/lib/constraints';
+import { formatDayKeyDisplay } from '@/lib/time';
 import { ConstrainedTextarea } from '@/components/constrained-textarea';
 import { ArenaRunner } from '@/components/arena-runner';
 import { Card, CardContent } from '@/components/ui/card';
@@ -92,7 +93,7 @@ export default function DailyVersusPage() {
                                 </div>
                                 <div className="text-sm text-muted-foreground">{constraint.description}</div>
                             </div>
-                            <div className="text-xs text-muted-foreground tabular-nums">{dayKey}</div>
+                            <div className="text-xs text-muted-foreground tabular-nums">{formatDayKeyDisplay(dayKey)}</div>
                         </div>
                     </CardContent>
                 </Card>
