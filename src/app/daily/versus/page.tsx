@@ -104,21 +104,23 @@ export default function DailyVersusPage() {
                             <>
                                 <div className="font-medium">Comment jouer</div>
                                 <ol className="list-decimal pl-5 space-y-1 text-muted-foreground">
-                                    <li>Écrivez votre texte à gauche.</li>
-                                    <li>Cliquez “Au tour de la Machine”. À droite, elle écrit sous la même contrainte.</li>
-                                    <li>Quand votre texte est prêt et qu’il bat la Machine, cliquez “Valider & envoyer”.</li>
-                                    <li>Le texte est accepté seulement s’il respecte la contrainte et “fait sens”.</li>
+                                    <li>Écrivez votre texte.</li>
+                                    <li>Cliquez “Au tour de la Machine”.</li>
                                 </ol>
+                                <div className="text-muted-foreground">
+                                    Si votre texte respecte la contrainte et est plus long que celui de la Machine, vous avez gagné.
+                                </div>
                             </>
                         ) : (
                             <>
                                 <div className="font-medium">How to play</div>
                                 <ol className="list-decimal pl-5 space-y-1 text-muted-foreground">
                                     <li>Write your text on the left.</li>
-                                    <li>Click “Machine's turn”. On the right, it writes under the same constraint.</li>
-                                    <li>When your text is ready and beats the Machine, click “Validate & submit”.</li>
-                                    <li>Accepted only if it follows the constraint and actually makes sense.</li>
+                                    <li>Click “Machine's turn”.</li>
                                 </ol>
+                                <div className="text-muted-foreground">
+                                    If your text follows the constraint and is longer than the Machine’s, you win.
+                                </div>
                             </>
                         )}
                     </CardContent>
@@ -147,11 +149,6 @@ export default function DailyVersusPage() {
                             <div className="text-sm font-medium">{s.versus.machine}</div>
                             {!machineStarted ? (
                                 <div className="space-y-3">
-                                    <div className="text-sm text-muted-foreground">
-                                        {lang === 'fr'
-                                            ? 'Écrivez d’abord votre texte, puis lancez la Machine. Elle doit vous dépasser en longueur.'
-                                            : 'Write your text first, then start the Machine. It must beat your length.'}
-                                    </div>
                                     <button
                                         type="button"
                                         className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
@@ -193,13 +190,7 @@ export default function DailyVersusPage() {
                     />
                 </div>
 
-                {machineStarted && !beatsMachine && (
-                    <div className="text-sm text-muted-foreground">
-                        {lang === 'fr'
-                            ? 'Votre texte doit être plus long que celui de la Machine pour être envoyé.'
-                            : 'Your text must be longer than the Machine to submit.'}
-                    </div>
-                )}
+                {/* Intentionally no extra warning copy here; submit button state is enough. */}
             </div>
         </main>
     );
