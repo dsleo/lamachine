@@ -11,6 +11,9 @@ export const runs = pgTable(
         lang: text('lang').notNull(), // 'fr' | 'en'
         mode: text('mode').notNull(), // 'arena' | 'versus'
 
+        // Versus-only at the moment (stored for auditing + scoring).
+        difficulty: text('difficulty').notNull().default('easy'),
+
         nickname: text('nickname').notNull(),
 
         // Progress

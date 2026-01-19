@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSettings } from '@/hooks/use-settings';
 import { t } from '@/lib/i18n';
@@ -8,14 +8,19 @@ import { getDailyChallenge, getParisDayKey } from '@/lib/daily';
 import { getConstraintById, type ConstraintId } from '@/lib/constraints';
 import { formatDayKeyDisplay } from '@/lib/time';
 import { ConstrainedTextarea } from '@/components/constrained-textarea';
-import { ArenaRunner } from '@/components/arena-runner';
-import { Card, CardContent } from '@/components/ui/card';
+import { ArenaRunner, type ArenaRunnerAttemptInfo, type ArenaRunnerStatus } from '@/components/arena-runner';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SubmitScoreDialog } from '@/components/submit-score-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { Switch } from '@/components/ui/switch';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
+import { countLetters } from '@/lib/text-metrics';
 
 export default function DailyVersusPage() {
     const router = useRouter();
-    const { settings } = useSettings();
+    const { settings, update } = useSettings();
     const lang = settings.lang;
     const s = t(lang);
     const { toast } = useToast();
@@ -29,6 +34,17 @@ export default function DailyVersusPage() {
     const [submitting, setSubmitting] = useState(false);
     const [machineStarted, setMachineStarted] = useState(false);
     const [machineTargetChars, setMachineTargetChars] = useState<number>(0);
+    const [machineRunKey, setMachineRunKey] = useState(0);
+    const [machineStatus, setMachineStatus] = useState<ArenaRunnerStatus>('ready');
+    const [machineAttemptInfo, setMachineAttemptInfo] = useState<ArenaRunnerAttemptInfo | null>(null);
+    const [retryFlash, setRetryFlash] = useState<ArenaRunnerAttemptInfo | null>(null);
+    const [machineViolation, setMachineViolation] = useState<{
+        fullText: string;
+        lastValidPrefix: string;
+        error: string;
+        highlightStart: number;
+        highlightEnd: number;
+    } | null>(null);
 
     const submit = async (nickname: string) => {
         setSubmitting(true);
@@ -61,7 +77,7 @@ export default function DailyVersusPage() {
             if (json?.approved) {
                 toast({ title: lang === 'fr' ? '✅ Accepté' : '✅ Accepted', description: json.reason });
                 router.push(
-                    `/leaderboard?celebrate=1&mode=versus&dayKey=${encodeURIComponent(dayKey)}&chars=${humanText.length}&constraintId=${encodeURIComponent(challenge.constraintId satisfies ConstraintId)}&param=${encodeURIComponent(challenge.param ?? '')}`
+                    `/leaderboard?celebrate=1&mode=versus&dayKey=${encodeURIComponent(dayKey)}&chars=${humanLetters}&constraintId=${encodeURIComponent(challenge.constraintId satisfies ConstraintId)}&param=${encodeURIComponent(challenge.param ?? '')}`
                 );
             } else {
                 toast({ title: lang === 'fr' ? '❌ Refusé' : '❌ Rejected', description: json?.reason ?? '' });
@@ -77,7 +93,44 @@ export default function DailyVersusPage() {
         }
     };
 
-    const beatsMachine = humanText.length > machineText.length;
+    const humanLetters = useMemo(() => countLetters(humanText), [humanText]);
+    const rawMachineLetters = useMemo(() => countLetters(machineText), [machineText]);
+
+    const machineViolationActive = !!(machineViolation && machineText === machineViolation.fullText);
+    const machineHighlightStart = machineViolationActive ? machineViolation!.highlightStart : null;
+    const machineHighlightEnd = machineViolationActive ? machineViolation!.highlightEnd : null;
+
+    // Scoring uses ONLY the valid prefix if the machine violated.
+    const machineScoreLetters = machineViolationActive
+        ? countLetters(machineViolation!.lastValidPrefix)
+        : rawMachineLetters;
+
+    const beatsMachine = humanLetters > machineScoreLetters;
+    const hasResult = machineStarted && (machineStatus === 'failed' || machineStatus === 'stopped') && machineScoreLetters > 0;
+    const userLost = hasResult && !beatsMachine;
+    const machineRetrying = !!machineAttemptInfo?.retrying;
+
+    const machineDisplayText = useMemo(() => {
+        // If we violated, do not display any extra words after the violating token.
+        if (machineHighlightEnd === null) return machineText;
+        return machineText.slice(0, machineHighlightEnd);
+    }, [machineText, machineHighlightEnd]);
+
+    // Keep a brief visible retry indicator even if a retry happens very fast.
+    useEffect(() => {
+        if (machineAttemptInfo?.retrying) {
+            setRetryFlash(machineAttemptInfo);
+            return;
+        }
+        if (!retryFlash) return;
+        const id = window.setTimeout(() => setRetryFlash(null), 1200);
+        return () => window.clearTimeout(id);
+    }, [machineAttemptInfo, retryFlash]);
+
+    const machineDifficultyTooltip =
+        lang === 'fr'
+            ? 'La Machine a droit à 5 tentatives.'
+            : 'The Machine gets up to 5 attempts.';
 
     return (
         <main className="min-h-screen w-full bg-background">
@@ -133,8 +186,13 @@ export default function DailyVersusPage() {
 
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                     <Card>
-                        <CardContent className="pt-6 space-y-3">
-                            <div className="text-sm font-medium">{s.versus.human}</div>
+                        <CardHeader className="p-4">
+                            <div className="flex items-center justify-between gap-2">
+                                <CardTitle className="text-base">{s.versus.human}</CardTitle>
+                                <div className="text-xs text-muted-foreground">{humanLetters} {s.common.chars}</div>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="p-4 pt-0 space-y-3">
                             <ConstrainedTextarea
                                 constraint={constraint}
                                 param={challenge.param}
@@ -145,52 +203,158 @@ export default function DailyVersusPage() {
                                 blockInvalidEdits
                                 showError
                             />
-                            <div className="text-xs text-muted-foreground">{humanText.length} {s.common.chars}</div>
                         </CardContent>
                     </Card>
 
                     <Card>
-                        <CardContent className="pt-6 space-y-3">
-                            <div className="text-sm font-medium">{s.versus.machine}</div>
+                        <CardHeader className="p-4">
+                            <div className="flex items-center justify-between gap-3">
+                                <CardTitle className="text-base">{s.versus.machine}</CardTitle>
+
+                                <div className="flex items-center gap-3">
+                                    <div className="text-xs text-muted-foreground tabular-nums whitespace-nowrap">
+                                        {machineScoreLetters} {s.common.chars}
+                                    </div>
+
+                                    <TooltipProvider>
+                                        <div className="inline-flex items-center gap-2 text-xs text-muted-foreground whitespace-nowrap">
+                                            <span>{lang === 'fr' ? 'Facile' : 'Easy'}</span>
+                                            <Switch
+                                                checked={settings.versusDifficulty === 'hard'}
+                                                onCheckedChange={(checked) => update({ versusDifficulty: checked ? 'hard' : 'easy' })}
+                                                aria-label={lang === 'fr' ? 'Mode difficile (Machine)' : 'Hard mode (Machine)'}
+                                                size="sm"
+                                            />
+                                            <span>{lang === 'fr' ? 'Difficile' : 'Hard'}</span>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <button
+                                                        type="button"
+                                                        className="inline-flex h-5 w-5 items-center justify-center rounded-full border text-[10px] hover:bg-accent"
+                                                        aria-label={lang === 'fr' ? 'Info mode difficile' : 'Hard mode info'}
+                                                    >
+                                                        i
+                                                    </button>
+                                                </TooltipTrigger>
+                                                <TooltipContent className="max-w-[260px] whitespace-normal">
+                                                    {machineDifficultyTooltip}
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        </div>
+                                    </TooltipProvider>
+                                </div>
+                            </div>
+                        </CardHeader>
+
+                        <CardContent className="p-4 pt-0 space-y-3">
                             {!machineStarted ? (
-                                <div className="space-y-3">
-                                    <button
-                                        type="button"
-                                        className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-                                        onClick={() => {
-                                            setMachineStarted(true);
-                                            setMachineTargetChars(humanText.length);
-                                            setMachineText('');
-                                        }}
-                                        disabled={humanText.length === 0}
-                                    >
-                                        {lang === 'fr' ? 'Au tour de la Machine' : 'Machine\'s turn'}
-                                    </button>
+                                <div className="relative">
+                                    {/* Invisible textarea keeps perfect height alignment with the human textarea. */}
+                                    <Textarea rows={14} readOnly value="" className="typewriter-textarea invisible" />
+                                    <div className="absolute inset-0 flex items-center justify-center">
+                                        <button
+                                            type="button"
+                                            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                                            onClick={() => {
+                                                setMachineStarted(true);
+                                                setMachineTargetChars(humanLetters);
+                                                setMachineText('');
+                                                setMachineAttemptInfo(null);
+                                                setRetryFlash(null);
+                                                setMachineViolation(null);
+                                                setMachineRunKey((k) => k + 1);
+                                            }}
+                                            disabled={humanLetters === 0}
+                                        >
+                                            {lang === 'fr' ? 'Au tour de la Machine' : "Machine's turn"}
+                                        </button>
+                                    </div>
                                 </div>
                             ) : (
-                                <ArenaRunner
-                                    lang={lang}
-                                    constraint={constraint}
-                                    param={challenge.param}
-                                    steeringEnabled={false}
-                                    chrome={false}
-                                    headerEnabled={false}
-                                    statusEnabled={false}
-                                    onTextChange={setMachineText}
-                                    autoRun
-                                    controlsEnabled={false}
-                                    minCharsToBeat={machineTargetChars}
-                                />
+                                <>
+                                    {/* Render machine output with invalid tail highlighted (when present). */}
+                                    <div className="relative">
+                                        <Textarea rows={14} readOnly value={machineDisplayText} className="typewriter-textarea invisible" />
+                                        <div
+                                            className="absolute inset-0 w-full rounded-md border border-input bg-background px-3 py-2 text-base md:text-sm font-mono whitespace-pre-wrap break-words overflow-auto"
+                                            aria-label={lang === 'fr' ? 'Texte de la Machine' : 'Machine text'}
+                                        >
+                                            {machineHighlightStart === null || machineHighlightEnd === null ? (
+                                                machineDisplayText
+                                            ) : (
+                                                <>
+                                                    <span>{machineDisplayText.slice(0, machineHighlightStart)}</span>
+                                                    <span className="text-destructive">
+                                                        {machineDisplayText.slice(machineHighlightStart, machineHighlightEnd)}
+                                                    </span>
+                                                    <span>{machineDisplayText.slice(machineHighlightEnd)}</span>
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Hidden runner (drives machineText updates) */}
+                                    <ArenaRunner
+                                        key={machineRunKey}
+                                        lang={lang}
+                                        constraint={constraint}
+                                        param={challenge.param}
+                                        difficulty={settings.versusDifficulty}
+                                        steeringEnabled={false}
+                                        chrome={false}
+                                        headerEnabled={false}
+                                        statusEnabled={false}
+                                        onTextChange={setMachineText}
+                                        onStatusChange={setMachineStatus}
+                                        onAttemptInfoChange={setMachineAttemptInfo}
+                                        onViolation={(v) => setMachineViolation(v)}
+                                        autoRun
+                                        controlsEnabled={false}
+                                        minCharsToBeat={machineTargetChars}
+                                        renderOutput={false}
+                                        truncateOnViolation={false}
+                                    />
+
+                                    {/* Retry indicator BELOW the text box */}
+                                    {(machineRetrying || retryFlash) && (
+                                        <div className="text-xs text-muted-foreground">
+                                            <Badge variant="secondary">
+                                                {lang === 'fr'
+                                                    ? `Nouvelle tentative ${(machineAttemptInfo ?? retryFlash)!.attempt}/${(machineAttemptInfo ?? retryFlash)!.max}…`
+                                                    : `Retrying ${(machineAttemptInfo ?? retryFlash)!.attempt}/${(machineAttemptInfo ?? retryFlash)!.max}…`}
+                                            </Badge>
+                                        </div>
+                                    )}
+
+                                    {/* Retry CTA moved to the bottom action row */}
+                                </>
                             )}
                         </CardContent>
                     </Card>
                 </div>
 
-                <div className="flex items-center justify-end">
+                <div className="flex items-center justify-end gap-2">
+                    {userLost && (
+                        <button
+                            type="button"
+                            className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-accent"
+                            onClick={() => {
+                                // Let the user extend their text, then rerun the Machine against the new length.
+                                setMachineTargetChars(humanLetters);
+                                setMachineText('');
+                                setMachineAttemptInfo(null);
+                                setRetryFlash(null);
+                                setMachineViolation(null);
+                                setMachineRunKey((k) => k + 1);
+                            }}
+                        >
+                            {lang === 'fr' ? 'Réessayer' : 'Retry'}
+                        </button>
+                    )}
                     <SubmitScoreDialog
                         lang={lang}
                         triggerLabel={lang === 'fr' ? 'Valider & envoyer' : 'Validate & submit'}
-                        disabled={submitting || humanText.length === 0 || !machineStarted || !beatsMachine}
+                        disabled={submitting || humanLetters === 0 || !machineStarted || !beatsMachine}
                         onSubmit={submit}
                     />
                 </div>

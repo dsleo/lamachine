@@ -3,16 +3,18 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSettings } from '@/hooks/use-settings';
 import { t } from '@/lib/i18n';
-import { getCampaign, getLevel, computeTotalScore, formatLevelGoal, levelConstraint, scoreTimedPalindrome } from '@/lib/campaign';
+import { getCampaign, getLevel, formatLevelGoal, levelConstraint, scoreTimedPalindrome } from '@/lib/campaign';
+import { countLetters } from '@/lib/text-metrics';
 import { ConstrainedTextarea } from '@/components/constrained-textarea';
 import { ArenaRunner } from '@/components/arena-runner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { SubmitScoreDialog } from '@/components/submit-score-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export function CampaignVersus() {
-    const { settings } = useSettings();
+    const { settings, update } = useSettings();
     const lang = settings.lang;
     const s = t(lang);
     const { toast } = useToast();
@@ -58,21 +60,16 @@ export function CampaignVersus() {
     }, [level.metric, isCleared]);
 
     const currentLevelScore = useMemo(() => {
-        if (level.metric === 'chars') return text.length;
+        if (level.metric === 'chars') return countLetters(text);
         const elapsed = (clearTimeMs ?? nowMs) - startedAtMs;
         return scoreTimedPalindrome(elapsed);
-    }, [level.metric, text.length, clearTimeMs, startedAtMs, nowMs]);
-
-    const totalScore = useMemo(
-        () => computeTotalScore({ levelsCleared, levelScore: currentLevelScore }),
-        [levelsCleared, currentLevelScore]
-    );
+    }, [level.metric, text, clearTimeMs, startedAtMs, nowMs]);
 
     const checkClear = (candidateText: string) => {
         if (level.metric === 'chars') {
             const min = level.minChars ?? 0;
-            const humanOk = candidateText.length >= min;
-            const beatsMachine = candidateText.length > machineText.length;
+            const humanOk = countLetters(candidateText) >= min;
+            const beatsMachine = countLetters(candidateText) > countLetters(machineText);
             if (humanOk && beatsMachine) {
                 setIsCleared(true);
                 setLevelsCleared((prev) => Math.max(prev, levelIndex));
@@ -124,6 +121,7 @@ export function CampaignVersus() {
                     campaignId: 'v1',
                     lang,
                     mode: 'versus',
+                    difficulty: settings.versusDifficulty,
                     nickname,
                     levelsCleared,
                     levelIndex,
@@ -163,6 +161,24 @@ export function CampaignVersus() {
                             L{levelIndex}/{getCampaign().levels.length}
                         </div>
                     </div>
+
+                    <div className="mt-4 flex flex-wrap items-center gap-2">
+                        <div className="text-xs text-muted-foreground">
+                            {lang === 'fr' ? 'Difficulté' : 'Difficulty'}
+                        </div>
+                        <Select
+                            value={settings.versusDifficulty}
+                            onValueChange={(v) => update({ versusDifficulty: (v === 'hard' ? 'hard' : 'easy') as 'easy' | 'hard' })}
+                        >
+                            <SelectTrigger className="h-9 w-[160px]">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="easy">{lang === 'fr' ? 'Facile' : 'Easy'}</SelectItem>
+                                <SelectItem value="hard">{lang === 'fr' ? 'Difficile (x1.5 score)' : 'Hard (x1.5 score)'}</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
                 </CardContent>
             </Card>
 
@@ -171,7 +187,7 @@ export function CampaignVersus() {
                     <CardHeader>
                         <div className="flex items-center justify-between gap-2">
                             <CardTitle className="text-base">{s.versus.human}</CardTitle>
-                            <div className="text-xs text-muted-foreground">{text.length} {s.common.chars}</div>
+                            <div className="text-xs text-muted-foreground">{countLetters(text)} {s.common.chars}</div>
                         </div>
                     </CardHeader>
                     <CardContent className="space-y-3">
@@ -198,7 +214,7 @@ export function CampaignVersus() {
                     <CardHeader>
                         <div className="flex items-center justify-between gap-2">
                             <CardTitle className="text-base">{s.versus.machine}</CardTitle>
-                            <div className="text-xs text-muted-foreground">{machineText.length} {s.common.chars}</div>
+                            <div className="text-xs text-muted-foreground">{countLetters(machineText)} {s.common.chars}</div>
                         </div>
                     </CardHeader>
                     <CardContent>
@@ -207,6 +223,7 @@ export function CampaignVersus() {
                                 lang={lang}
                                 constraint={constraint}
                                 param={param}
+                                difficulty={settings.versusDifficulty}
                                 steeringEnabled={false}
                                 chrome={false}
                                 headerEnabled={false}

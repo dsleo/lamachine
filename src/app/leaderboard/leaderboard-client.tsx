@@ -7,7 +7,6 @@ import { t } from '@/lib/i18n';
 import { useSettings } from '@/hooks/use-settings';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { getConstraintById, type ConstraintId } from '@/lib/constraints';
 import { parseCelebrationQuery } from '@/lib/celebration';
@@ -20,21 +19,14 @@ type Row = {
     id: string;
     createdAt: string;
     nickname: string;
-    chars: number;
-    dayKey: string;
-    text: string;
-    constraintId: string;
-    param: string;
+    totalScore: number;
+    levelsCleared: number;
+    levelIndex: number;
+    levelScore: number;
+    difficulty: 'easy' | 'hard';
 };
 
-function formatConstraintLabel(args: { constraintId: string; param: string }): string {
-    try {
-        const c = getConstraintById(args.constraintId as ConstraintId);
-        return args.param ? `${c.name} en ${args.param}` : c.name;
-    } catch {
-        return args.param ? `${args.constraintId} ${args.param}` : args.constraintId;
-    }
-}
+// Daily leaderboard formatting helpers are no longer used on this page.
 
 export function LeaderboardClient() {
     const router = useRouter();
@@ -64,7 +56,7 @@ export function LeaderboardClient() {
         }
     }, [celebrationQuery.constraintId, celebrationQuery.param]);
 
-    const [mode, setMode] = useState<Mode>('coach');
+    const [mode, setMode] = useState<Mode>('versus');
     const [rows, setRows] = useState<Row[]>([]);
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
@@ -78,7 +70,7 @@ export function LeaderboardClient() {
             setError(null);
             try {
                 const res = await fetch(
-                    `/api/daily/leaderboard/list?mode=${mode}&lang=${lang}&limit=10`,
+                    `/api/leaderboard/list?campaignId=v1&mode=${mode === 'coach' ? 'arena' : 'versus'}&lang=${lang}&period=all&limit=25`,
                     { cache: 'no-store' }
                 );
                 if (!res.ok) {
@@ -148,7 +140,7 @@ export function LeaderboardClient() {
                             className="rounded-full"
                             onClick={() => setMode('coach')}
                         >
-                            {lang === 'fr' ? 'Coach la Machine' : 'Coach'}
+                            {lang === 'fr' ? 'Campagne (Coach)' : 'Campaign (Coach)'}
                         </Button>
                         <Button
                             size="sm"
@@ -156,14 +148,14 @@ export function LeaderboardClient() {
                             className="rounded-full"
                             onClick={() => setMode('versus')}
                         >
-                            {lang === 'fr' ? 'Battre la Machine' : 'Versus'}
+                            {lang === 'fr' ? 'Campagne (Versus)' : 'Campaign (Versus)'}
                         </Button>
                     </div>
                 </div>
 
                 <Card>
                     <CardHeader>
-                        <CardTitle className="text-base">Top 10</CardTitle>
+                        <CardTitle className="text-base">Top 25</CardTitle>
                     </CardHeader>
                     <CardContent>
                         {loading && <div className="text-sm text-muted-foreground">Loading…</div>}
@@ -175,9 +167,10 @@ export function LeaderboardClient() {
                                         <tr className="text-left text-muted-foreground">
                                             <th className="py-2 pr-3">#</th>
                                             <th className="py-2 pr-3">Nick</th>
-                                            <th className="py-2 pr-3">Chars</th>
-                                            <th className="py-2 pr-3">Texte</th>
-                                            <th className="py-2 pr-3">Day</th>
+                                            <th className="py-2 pr-3">Mode</th>
+                                            <th className="py-2 pr-3">Diff</th>
+                                            <th className="py-2 pr-3">Levels</th>
+                                            <th className="py-2 pr-3">Score</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -185,37 +178,15 @@ export function LeaderboardClient() {
                                             <tr key={r.id} className="border-t">
                                                 <td className="py-2 pr-3">{i + 1}</td>
                                                 <td className="py-2 pr-3 font-medium">{r.nickname}</td>
-                                                <td className="py-2 pr-3">{r.chars}</td>
-                                                <td className="py-2 pr-3">
-                                                    <Dialog>
-                                                        <DialogTrigger asChild>
-                                                            <Button size="sm" variant="secondary">{lang === 'fr' ? 'Voir' : 'View'}</Button>
-                                                        </DialogTrigger>
-                                                        <DialogContent>
-                                                            <DialogHeader>
-                                                                <DialogTitle>
-                                                                    {r.nickname} • {r.chars} {lang === 'fr' ? 'caractères' : 'chars'}
-                                                                </DialogTitle>
-                                                            </DialogHeader>
-
-                                                            <div className="text-xs text-muted-foreground">
-                                                                {formatConstraintLabel({ constraintId: r.constraintId, param: r.param })}
-                                                                <span className="opacity-60"> • </span>
-                                                                <span className="tabular-nums">{r.dayKey}</span>
-                                                            </div>
-
-                                                            <div className="rounded-md border bg-muted/30 p-3 text-sm whitespace-pre-wrap">
-                                                                {r.text}
-                                                            </div>
-                                                        </DialogContent>
-                                                    </Dialog>
-                                                </td>
-                                                <td className="py-2 pr-3 tabular-nums">{r.dayKey}</td>
+                                                <td className="py-2 pr-3">{mode === 'coach' ? 'arena' : 'versus'}</td>
+                                                <td className="py-2 pr-3">{r.difficulty}</td>
+                                                <td className="py-2 pr-3">{r.levelsCleared}/10</td>
+                                                <td className="py-2 pr-3 tabular-nums">{r.totalScore}</td>
                                             </tr>
                                         ))}
                                         {rows.length === 0 && (
                                             <tr>
-                                                <td className="py-3 text-muted-foreground" colSpan={5}>
+                                                <td className="py-3 text-muted-foreground" colSpan={6}>
                                                     {lang === 'fr'
                                                         ? 'Aucun score pour l’instant.'
                                                         : 'No scores yet.'}
@@ -232,4 +203,3 @@ export function LeaderboardClient() {
         </main>
     );
 }
-

@@ -53,6 +53,7 @@ export async function GET(req: Request) {
             id: runs.id,
             createdAt: runs.createdAt,
             nickname: runs.nickname,
+            difficulty: runs.difficulty,
             totalScore: runs.totalScore,
             levelsCleared: runs.levelsCleared,
             levelIndex: runs.levelIndex,
