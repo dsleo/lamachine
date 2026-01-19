@@ -3,6 +3,7 @@ import { db } from '@/server/db/client';
 import { runs } from '@/server/db/schema';
 import { getLevel, computeTotalScore, scoreTimedPalindrome, levelConstraint } from '@/lib/campaign';
 import { isValidNickname, normalizeNickname } from '@/lib/nickname';
+import { countLetters } from '@/lib/text-metrics';
 
 export const runtime = 'nodejs';
 
@@ -10,6 +11,7 @@ const BodySchema = z.object({
     campaignId: z.literal('v1'),
     lang: z.enum(['fr', 'en']),
     mode: z.enum(['arena', 'versus']),
+    difficulty: z.enum(['easy', 'hard']).optional(),
     nickname: z.string(),
 
     // client-provided progress
@@ -37,6 +39,11 @@ export async function POST(req: Request) {
     }
 
     const body = parsed.data;
+    const difficulty = body.difficulty ?? 'easy';
+    if (difficulty === 'hard' && body.mode !== 'versus') {
+        return new Response('Hard difficulty is only supported in versus mode', { status: 400 });
+    }
+
     const nickname = normalizeNickname(body.nickname);
     if (!isValidNickname(nickname)) {
         return new Response('Invalid nickname (use 3-10 chars: A-Z0-9_-)', { status: 400 });
@@ -51,20 +58,23 @@ export async function POST(req: Request) {
         return new Response(`Invalid run: ${res.error ?? 'constraint violation'}`, { status: 400 });
     }
 
-    let levelScore = 0;
+    let levelScoreRaw = 0;
     if (level.metric === 'chars') {
-        levelScore = body.text.length;
+        levelScoreRaw = countLetters(body.text);
         const min = level.minChars ?? 0;
-        if (levelScore < min) {
+        if (levelScoreRaw < min) {
             return new Response(`Level not cleared: needs ${min} chars`, { status: 400 });
         }
     } else {
         const elapsed = body.elapsedMs ?? 0;
-        levelScore = scoreTimedPalindrome(elapsed);
+        levelScoreRaw = scoreTimedPalindrome(elapsed);
         // For palindrome levels, we just require validity.
     }
 
-    const totalChars = body.text.length; // v1: store last-level chars; can evolve to total across levels
+    const multiplier = difficulty === 'hard' ? 1.5 : 1.0;
+    const levelScore = Math.floor(levelScoreRaw * multiplier);
+
+    const totalChars = countLetters(body.text); // v1: store last-level chars; can evolve to total across levels
     const totalScore = computeTotalScore({
         levelsCleared: body.levelsCleared,
         levelScore,
@@ -77,6 +87,7 @@ export async function POST(req: Request) {
                 campaignId: body.campaignId,
                 lang: body.lang,
                 mode: body.mode,
+                difficulty,
                 nickname,
                 levelIndex: body.levelIndex,
                 levelsCleared: body.levelsCleared,
@@ -88,6 +99,7 @@ export async function POST(req: Request) {
                 id: runs.id,
                 createdAt: runs.createdAt,
                 nickname: runs.nickname,
+                difficulty: runs.difficulty,
                 totalScore: runs.totalScore,
                 levelsCleared: runs.levelsCleared,
                 levelIndex: runs.levelIndex,

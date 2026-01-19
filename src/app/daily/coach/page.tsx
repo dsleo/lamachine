@@ -10,6 +10,7 @@ import { ArenaRunner } from '@/components/arena-runner';
 import { Card, CardContent } from '@/components/ui/card';
 import { SubmitScoreDialog } from '@/components/submit-score-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { countLetters } from '@/lib/text-metrics';
 
 export default function DailyCoachPage() {
     const router = useRouter();
@@ -55,7 +56,7 @@ export default function DailyCoachPage() {
             if (json?.approved) {
                 toast({ title: lang === 'fr' ? '✅ Accepté' : '✅ Accepted', description: json.reason });
                 router.push(
-                    `/leaderboard?celebrate=1&mode=coach&dayKey=${encodeURIComponent(dayKey)}&chars=${text.length}&constraintId=${encodeURIComponent(challenge.constraintId satisfies ConstraintId)}&param=${encodeURIComponent(challenge.param ?? '')}`
+                    `/leaderboard?celebrate=1&mode=coach&dayKey=${encodeURIComponent(dayKey)}&chars=${countLetters(text)}&constraintId=${encodeURIComponent(challenge.constraintId satisfies ConstraintId)}&param=${encodeURIComponent(challenge.param ?? '')}`
                 );
             } else {
                 toast({ title: lang === 'fr' ? '❌ Refusé' : '❌ Rejected', description: json?.reason ?? '' });
@@ -134,7 +135,7 @@ export default function DailyCoachPage() {
                     <SubmitScoreDialog
                         lang={lang}
                         triggerLabel={lang === 'fr' ? 'Valider & envoyer' : 'Validate & submit'}
-                        disabled={submitting || text.length === 0}
+                        disabled={submitting || countLetters(text) === 0}
                         onSubmit={submit}
                     />
                 </div>

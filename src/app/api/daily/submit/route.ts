@@ -8,6 +8,7 @@ import { getConstraintById } from '@/lib/constraints';
 import { buildSemanticJudgePrompt, type SemanticJudgeResult } from '@/lib/semantic-judge';
 import { tryParseSemanticJudgeJson } from '@/lib/semantic-judge';
 import { DEFAULT_MODEL } from '@/lib/models';
+import { countLetters } from '@/lib/text-metrics';
 
 export const runtime = 'nodejs';
 
@@ -103,7 +104,7 @@ export async function POST(req: Request) {
                 param: challenge.param,
                 nickname,
                 text: body.text,
-                chars: body.text.length,
+                chars: countLetters(body.text),
                 semanticApproved: 1,
                 semanticReason: reason,
             })

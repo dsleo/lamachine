@@ -7,6 +7,7 @@ import { ArenaRunner } from '@/components/arena-runner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { SubmitScoreDialog } from '@/components/submit-score-dialog';
+import { countLetters } from '@/lib/text-metrics';
 
 export function CampaignArena() {
     const { settings } = useSettings();
@@ -68,6 +69,7 @@ export function CampaignArena() {
                     campaignId: 'v1',
                     lang,
                     mode: 'arena',
+                    difficulty: 'easy',
                     nickname,
                     levelsCleared,
                     levelIndex,
@@ -125,7 +127,7 @@ export function CampaignArena() {
                             setText(t);
                             if (!isCleared && level.metric === 'chars') {
                                 const min = level.minChars ?? 0;
-                                if (t.length >= min) {
+                                if (countLetters(t) >= min) {
                                     setIsCleared(true);
                                     setLevelsCleared((prev) => Math.max(prev, levelIndex));
                                 }
