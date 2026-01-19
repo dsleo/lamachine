@@ -106,8 +106,7 @@ export default function DailyVersusPage() {
         : rawMachineLetters;
 
     const beatsMachine = humanLetters > machineScoreLetters;
-    const hasResult = machineStarted && (machineStatus === 'failed' || machineStatus === 'stopped') && machineScoreLetters > 0;
-    const userLost = hasResult && !beatsMachine;
+    const machineDone = machineStarted && (machineStatus === 'failed' || machineStatus === 'stopped');
     const machineRetrying = !!machineAttemptInfo?.retrying;
 
     const machineDisplayText = useMemo(() => {
@@ -300,6 +299,7 @@ export default function DailyVersusPage() {
                                         constraint={constraint}
                                         param={challenge.param}
                                         difficulty={settings.versusDifficulty}
+                                        hardRetryRollbackMode="sentence"
                                         steeringEnabled={false}
                                         chrome={false}
                                         headerEnabled={false}
@@ -334,7 +334,7 @@ export default function DailyVersusPage() {
                 </div>
 
                 <div className="flex items-center justify-end gap-2">
-                    {userLost && (
+                    {machineDone && (
                         <button
                             type="button"
                             className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-accent"

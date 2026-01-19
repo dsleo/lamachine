@@ -1,6 +1,9 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
+  // Prevent Next from picking an incorrect monorepo root when multiple lockfiles exist.
+  // This fixes issues like missing build artifacts during `next build`.
+  outputFileTracingRoot: __dirname,
   typescript: {
     ignoreBuildErrors: true,
   },

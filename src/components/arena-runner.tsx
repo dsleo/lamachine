@@ -20,6 +20,8 @@ export type ArenaRunnerStatus = RunnerStatus;
 
 export type VersusDifficulty = 'easy' | 'hard';
 
+export type HardRetryRollbackMode = 'word' | 'sentence';
+
 const WORD_BASED_CONSTRAINTS = new Set<Constraint['id']>(['tautogram', 'alliteration', 'snowball']);
 
 const BOUNDARY_CHAR_REGEX = /[\s.,;:!?\-"'’]/;
@@ -72,24 +74,77 @@ function rollbackBrokenWordAndEnsureSpace(prefix: string): string {
 }
 
 function removeLastWord(prefix: string): string {
-    // Remove trailing whitespace first.
+    // Goal: remove the last *real* word from a prefix, keeping punctuation/spacing sane.
+    // This is used only in hard-mode retries to avoid re-hitting the same violation.
+    // The previous implementation was boundary-based and could incorrectly remove short
+    // function words (e.g. "au"), producing outputs like "noir jardin".
+
+    // 1) Trim trailing whitespace AND trailing punctuation.
+    let end = prefix.length;
+    while (end > 0 && /[\s.,;:!?\-"'’]/.test(prefix[end - 1] ?? '')) end -= 1;
+    if (end <= 0) return '';
+
+    // 2) Find the end of the last word (letters/digits only).
+    let wordEnd = end;
+    while (wordEnd > 0 && /[\p{L}\p{N}]/u.test(prefix[wordEnd - 1] ?? '')) wordEnd -= 1;
+    const wordStart = wordEnd;
+    const word = prefix.slice(wordStart, end);
+
+    // If we didn't find a word, bail.
+    if (!word) return '';
+
+    // 3) Avoid removing very short words (prepositions/articles) which keeps grammar coherent.
+    // If the last word is <= 2 chars, keep the prefix unchanged.
+    if (word.length <= 2) {
+        // Ensure we end with a clean boundary for appending.
+        if (/["'’]$/.test(prefix)) return prefix;
+        return /\s$/.test(prefix) ? prefix : `${prefix} `;
+    }
+
+    // 4) Cut before the word, then normalize the boundary.
+    const head = prefix.slice(0, wordStart);
+    if (!head.trim()) return '';
+    if (/["'’]$/.test(head)) return head;
+    return /\s$/.test(head) ? head : `${head} `;
+}
+
+function removeLastSentence(prefix: string): string {
+    // Goal: remove the last sentence from a prefix, keeping punctuation/spacing sane.
+    // Used in (some) hard-mode retries to make the model back up further than a single word.
+
+    // 1) Trim trailing whitespace.
     let end = prefix.length;
     while (end > 0 && /\s/.test(prefix[end - 1] ?? '')) end -= 1;
     if (end <= 0) return '';
 
-    // Find boundary before the last word.
-    for (let i = end - 1; i >= 0; i -= 1) {
-        if (BOUNDARY_CHAR_REGEX.test(prefix[i] ?? '')) {
-            const cut = i + 1;
-            const head = prefix.slice(0, cut);
+    // If we already end on a terminator, step left so we actually remove the last
+    // non-empty sentence (and not just return the same prefix).
+    while (end > 0 && (prefix[end - 1] === '!' || prefix[end - 1] === '?' || prefix[end - 1] === '.' || prefix[end - 1] === '…')) {
+        end -= 1;
+    }
+    // Re-trim whitespace after removing terminators.
+    while (end > 0 && /\s/.test(prefix[end - 1] ?? '')) end -= 1;
+    if (end <= 0) return '';
 
-            if (/["'’]$/.test(head)) return head;
-            return /\s$/.test(head) ? head : `${head} `;
+    // 2) Find the last sentence terminator before `end`.
+    // Treat newline as a terminator too.
+    let cut: number | null = null;
+    for (let i = end - 1; i >= 0; i -= 1) {
+        const ch = prefix[i] ?? '';
+        if (ch === '\n' || ch === '!' || ch === '?' || ch === '.' || ch === '…') {
+            cut = i + 1;
+            break;
         }
     }
 
-    // Single-word prefix.
-    return '';
+    // No sentence boundary found => there's only one sentence; drop it entirely.
+    if (cut === null) return '';
+
+    const head = prefix.slice(0, cut);
+    if (!head.trim()) return '';
+    if (/\s$/.test(head)) return head;
+    if (/["'’]$/.test(head)) return head;
+    return `${head} `;
 }
 
 function endsWithBoundary(text: string) {
@@ -166,6 +221,7 @@ export function ArenaRunner(props: {
     outputMinHeightClassName?: string;
     renderOutput?: boolean;
     truncateOnViolation?: boolean;
+    hardRetryRollbackMode?: HardRetryRollbackMode;
     onViolation?: (info: {
         fullText: string;
         lastValidPrefix: string;
@@ -193,6 +249,7 @@ export function ArenaRunner(props: {
         outputMinHeightClassName = 'min-h-[180px]',
         renderOutput = true,
         truncateOnViolation = true,
+        hardRetryRollbackMode = 'word',
         onViolation,
         minCharsToBeat,
         difficulty = 'easy',
@@ -376,11 +433,12 @@ export function ArenaRunner(props: {
             temperature: number;
             baseText: string;
             rollbackWholeWordOnFail: boolean;
+            hardRollbackMode: HardRetryRollbackMode;
         }): Promise<
             | { ok: true; text: string }
             | { ok: false; reason: string; lastValidPrefix: string; fullText: string }
         > => {
-            const { system, prompt, temperature, baseText, rollbackWholeWordOnFail } = args;
+            const { system, prompt, temperature, baseText, rollbackWholeWordOnFail, hardRollbackMode } = args;
 
             const controller = new AbortController();
             abortRef.current = controller;
@@ -472,9 +530,13 @@ export function ArenaRunner(props: {
 
                                 // 1) Always rollback partial word.
                                 let prefix = rollbackBrokenWordAndEnsureSpace(prefixRaw);
-                                // 2) In hard mode retries, rollback the last full word too (more coherent).
+                                // 2) In hard mode retries, rollback further to reduce the chance of
+                                // re-hitting the same violation.
                                 if (rollbackWholeWordOnFail) {
-                                    prefix = removeLastWord(prefix);
+                                    prefix =
+                                        hardRollbackMode === 'sentence'
+                                            ? removeLastSentence(prefix)
+                                            : removeLastWord(prefix);
                                 }
 
                                 const bounds = findWordBounds(acc, lastOk);
@@ -533,6 +595,7 @@ export function ArenaRunner(props: {
             temperature: t1,
             baseText: '',
             rollbackWholeWordOnFail: false,
+            hardRollbackMode: hardRetryRollbackMode,
         });
         if (r1.ok) {
             currentText = r1.text;
@@ -573,6 +636,7 @@ export function ArenaRunner(props: {
                 temperature: 0.25,
                 baseText: lastValidPrefix,
                 rollbackWholeWordOnFail: true,
+                hardRollbackMode: hardRetryRollbackMode,
             });
 
             if (r.ok) {
