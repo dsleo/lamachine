@@ -21,7 +21,7 @@ export async function GET(req: Request) {
     const parsed = QuerySchema.safeParse({
         mode: url.searchParams.get('mode') ?? undefined,
         lang: url.searchParams.get('lang') ?? undefined,
-        limit: url.searchParams.get('limit') ?? '25',
+        limit: url.searchParams.get('limit') ?? '10',
     });
 
     if (!parsed.success) {

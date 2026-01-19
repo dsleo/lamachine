@@ -6,9 +6,11 @@ import type { Lang } from '@/lib/i18n';
 import { t } from '@/lib/i18n';
 import { useSettings } from '@/hooks/use-settings';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { getConstraintById, type ConstraintId } from '@/lib/constraints';
+import { getConstraintById } from '@/lib/constraints';
+import { formatDayKeyDisplay } from '@/lib/time';
+import { getParisDayKey } from '@/lib/daily';
 import { parseCelebrationQuery } from '@/lib/celebration';
 import { CelebrationBanner } from '@/components/celebration-banner';
 import { CelebrationConfetti } from '@/components/celebration-confetti';
@@ -17,16 +19,20 @@ type Mode = 'coach' | 'versus';
 
 type Row = {
     id: string;
+    dayKey: string;
     createdAt: string;
+    // Returned by /api/daily/top
+    chars: number;
     nickname: string;
-    totalScore: number;
-    levelsCleared: number;
-    levelIndex: number;
-    levelScore: number;
-    difficulty: 'easy' | 'hard';
+    text: string;
+    constraintId: string;
+    param: string;
 };
 
-// Daily leaderboard formatting helpers are no longer used on this page.
+function previewText(text: string): string {
+    // Keep it single-line; actual truncation (ellipsis) is handled by CSS `truncate`.
+    return text.trim().replace(/\s+/g, ' ');
+}
 
 export function LeaderboardClient() {
     const router = useRouter();
@@ -45,23 +51,40 @@ export function LeaderboardClient() {
     }, [celebrationQuery.celebrate]);
 
     const constraintLabel = useMemo(() => {
-        if (!celebrationQuery.constraintId) return undefined;
-        try {
-            const c = getConstraintById(celebrationQuery.constraintId as ConstraintId);
-            const p = celebrationQuery.param ?? '';
-            return p ? `${c.name} en ${p}` : c.name;
-        } catch {
-            const p = celebrationQuery.param ?? '';
-            return p ? `${celebrationQuery.constraintId} ${p}` : celebrationQuery.constraintId;
-        }
+        // Celebration banner expects a human label. We already have it in the query.
+        const id = celebrationQuery.constraintId;
+        if (!id) return undefined;
+        const p = celebrationQuery.param ?? '';
+        return p ? `${id} ${p}` : id;
     }, [celebrationQuery.constraintId, celebrationQuery.param]);
 
-    const [mode, setMode] = useState<Mode>('versus');
+    const [mode, setMode] = useState<Mode>((celebrationQuery.mode as Mode) ?? 'versus');
     const [rows, setRows] = useState<Row[]>([]);
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
+    const [openRow, setOpenRow] = useState<Row | null>(null);
 
-    const title = useMemo(() => (lang === 'fr' ? 'Leaderboard' : 'Leaderboard'), [lang]);
+    const title = useMemo(() => (lang === 'fr' ? 'Classement' : 'Leaderboard'), [lang]);
+
+    const dayKey = useMemo(() => celebrationQuery.dayKey ?? getParisDayKey(), [celebrationQuery.dayKey]);
+
+    const openConstraintLabel = useMemo(() => {
+        if (!openRow) return '';
+        try {
+            const c = getConstraintById(openRow.constraintId as never);
+            if (!openRow.param) return c.name;
+            // Keep simple FR connector for now; constraints names are currently FR.
+            return `${c.name} ${lang === 'fr' ? 'en' : 'in'} ${openRow.param}`;
+        } catch {
+            return openRow.param ? `${openRow.constraintId} ${openRow.param}` : openRow.constraintId;
+        }
+    }, [lang, openRow]);
+
+    // Keep the toggle aligned with URL params when arriving from /daily/* (which pushes mode=...)
+    useEffect(() => {
+        const m = celebrationQuery.mode;
+        if (m === 'coach' || m === 'versus') setMode(m);
+    }, [celebrationQuery.mode]);
 
     useEffect(() => {
         let cancelled = false;
@@ -70,7 +93,7 @@ export function LeaderboardClient() {
             setError(null);
             try {
                 const res = await fetch(
-                    `/api/leaderboard/list?campaignId=v1&mode=${mode === 'coach' ? 'arena' : 'versus'}&lang=${lang}&period=all&limit=25`,
+                    `/api/daily/leaderboard/list?mode=${mode}&lang=${lang}&limit=10`,
                     { cache: 'no-store' }
                 );
                 if (!res.ok) {
@@ -114,48 +137,33 @@ export function LeaderboardClient() {
                 )}
 
                 <header className="space-y-2">
-                    <h1 className="text-3xl font-bold">{title}</h1>
-                </header>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <h1 className="text-3xl font-bold">{title}</h1>
 
-                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-2">
-                            <span className="text-sm text-muted-foreground">{s.common.language}</span>
-                            <Select value={lang} onValueChange={(v) => update({ lang: v as Lang })}>
-                                <SelectTrigger className="h-9 w-[140px]">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="fr">{s.common.french}</SelectItem>
-                                    <SelectItem value="en">{s.common.english}</SelectItem>
-                                </SelectContent>
-                            </Select>
+                        <div className="flex items-center justify-between gap-3 rounded-full border bg-card p-1 w-fit">
+                            <Button
+                                size="sm"
+                                variant={mode === 'coach' ? 'default' : 'ghost'}
+                                className="rounded-full"
+                                onClick={() => setMode('coach')}
+                            >
+                                {lang === 'fr' ? 'Coacher la machine' : 'Coach the machine'}
+                            </Button>
+                            <Button
+                                size="sm"
+                                variant={mode === 'versus' ? 'default' : 'ghost'}
+                                className="rounded-full"
+                                onClick={() => setMode('versus')}
+                            >
+                                {lang === 'fr' ? 'Battre la machine' : 'Beat the machine'}
+                            </Button>
                         </div>
                     </div>
-
-                    <div className="flex items-center justify-between gap-3 rounded-full border bg-card p-1">
-                        <Button
-                            size="sm"
-                            variant={mode === 'coach' ? 'default' : 'ghost'}
-                            className="rounded-full"
-                            onClick={() => setMode('coach')}
-                        >
-                            {lang === 'fr' ? 'Campagne (Coach)' : 'Campaign (Coach)'}
-                        </Button>
-                        <Button
-                            size="sm"
-                            variant={mode === 'versus' ? 'default' : 'ghost'}
-                            className="rounded-full"
-                            onClick={() => setMode('versus')}
-                        >
-                            {lang === 'fr' ? 'Campagne (Versus)' : 'Campaign (Versus)'}
-                        </Button>
-                    </div>
-                </div>
+                </header>
 
                 <Card>
                     <CardHeader>
-                        <CardTitle className="text-base">Top 25</CardTitle>
+                        <CardTitle className="text-base">Top 10</CardTitle>
                     </CardHeader>
                     <CardContent>
                         {loading && <div className="text-sm text-muted-foreground">Loading…</div>}
@@ -166,27 +174,35 @@ export function LeaderboardClient() {
                                     <thead>
                                         <tr className="text-left text-muted-foreground">
                                             <th className="py-2 pr-3">#</th>
-                                            <th className="py-2 pr-3">Nick</th>
-                                            <th className="py-2 pr-3">Mode</th>
-                                            <th className="py-2 pr-3">Diff</th>
-                                            <th className="py-2 pr-3">Levels</th>
+                                            <th className="py-2 pr-3">Nickname</th>
                                             <th className="py-2 pr-3">Score</th>
+                                            <th className="py-2 pr-3">Text</th>
+                                            <th className="py-2 pr-3">Date</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {rows.map((r, i) => (
-                                            <tr key={r.id} className="border-t">
+                                            <tr key={r.id} className="border-t align-top">
                                                 <td className="py-2 pr-3">{i + 1}</td>
                                                 <td className="py-2 pr-3 font-medium">{r.nickname}</td>
-                                                <td className="py-2 pr-3">{mode === 'coach' ? 'arena' : 'versus'}</td>
-                                                <td className="py-2 pr-3">{r.difficulty}</td>
-                                                <td className="py-2 pr-3">{r.levelsCleared}/10</td>
-                                                <td className="py-2 pr-3 tabular-nums">{r.totalScore}</td>
+                                                <td className="py-2 pr-3 tabular-nums whitespace-nowrap">{r.chars}</td>
+                                                <td className="py-2 pr-3">
+                                                    <button
+                                                        type="button"
+                                                        className="block w-[520px] max-w-[520px] truncate text-left underline-offset-2 hover:underline"
+                                                        onClick={() => setOpenRow(r)}
+                                                    >
+                                                        {previewText(r.text)}
+                                                    </button>
+                                                </td>
+                                                <td className="py-2 pr-3 tabular-nums whitespace-nowrap">
+                                                    {formatDayKeyDisplay(r.dayKey)}
+                                                </td>
                                             </tr>
                                         ))}
                                         {rows.length === 0 && (
                                             <tr>
-                                                <td className="py-3 text-muted-foreground" colSpan={6}>
+                                                <td className="py-3 text-muted-foreground" colSpan={5}>
                                                     {lang === 'fr'
                                                         ? 'Aucun score pour l’instant.'
                                                         : 'No scores yet.'}
@@ -199,6 +215,33 @@ export function LeaderboardClient() {
                         )}
                     </CardContent>
                 </Card>
+
+                <Dialog open={!!openRow} onOpenChange={(open) => (!open ? setOpenRow(null) : null)}>
+                    <DialogContent className="max-w-2xl">
+                        <DialogHeader>
+                            <DialogTitle>
+                                {openRow ? `${openRow.nickname} — ${openRow.chars} ${lang === 'fr' ? 'caractères' : 'chars'}` : ''}
+                            </DialogTitle>
+                            <DialogDescription className="sr-only">
+                                {lang === 'fr' ? 'Texte complet' : 'Full text'}
+                            </DialogDescription>
+                        </DialogHeader>
+
+                        {openRow && (
+                            <div className="text-sm text-muted-foreground">
+                                {lang === 'fr' ? 'Contrainte:' : 'Constraint:'} {openConstraintLabel}
+                            </div>
+                        )}
+
+                        <div className="max-h-[60vh] overflow-auto whitespace-pre-wrap break-words rounded-md border bg-muted/30 p-4 font-mono text-sm">
+                            {openRow?.text ?? ''}
+                        </div>
+
+                        <div className="text-xs text-muted-foreground tabular-nums">
+                            {openRow ? formatDayKeyDisplay(openRow.dayKey) : ''}
+                        </div>
+                    </DialogContent>
+                </Dialog>
             </div>
         </main>
     );
