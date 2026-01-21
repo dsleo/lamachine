@@ -98,18 +98,7 @@ export default function DailyPage() {
                     </p>
                 </header>
 
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <Link
-                        href="/daily/coach"
-                        className="group rounded-2xl border bg-card p-6 text-left transition-all hover:-translate-y-[1px] hover:bg-accent/30 hover:border-primary/50"
-                    >
-                        <div className="flex items-center justify-between gap-3">
-                            <div className="text-lg font-semibold">{lang === 'fr' ? 'Aidez la Machine' : 'Help the Machine'}</div>
-                            <div className="text-xs text-muted-foreground group-hover:text-foreground">→</div>
-                        </div>
-                        <div className="mt-1 text-sm text-muted-foreground">{lang === 'fr' ? 'Donnez des consignes.' : 'Give instructions.'}</div>
-                    </Link>
-
+                <div className="grid grid-cols-1 gap-4">
                     <Link
                         href="/daily/versus"
                         className="group rounded-2xl border bg-card p-6 text-left transition-all hover:-translate-y-[1px] hover:bg-accent/30 hover:border-primary/50"
