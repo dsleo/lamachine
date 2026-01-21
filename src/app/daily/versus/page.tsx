@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSettings } from '@/hooks/use-settings';
 import { t } from '@/lib/i18n';
@@ -16,7 +16,8 @@ import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
-import { countLetters } from '@/lib/text-metrics';
+import { countLetters, countWords } from '@/lib/text-metrics';
+import { LoadingDots } from '@/components/loading-dots';
 
 export default function DailyVersusPage() {
     const router = useRouter();
@@ -33,11 +34,11 @@ export default function DailyVersusPage() {
     const [machineText, setMachineText] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [machineStarted, setMachineStarted] = useState(false);
-    const [machineTargetChars, setMachineTargetChars] = useState<number>(0);
+    const [machineTarget, setMachineTarget] = useState<number>(0);
     const [machineRunKey, setMachineRunKey] = useState(0);
     const [machineStatus, setMachineStatus] = useState<ArenaRunnerStatus>('ready');
     const [machineAttemptInfo, setMachineAttemptInfo] = useState<ArenaRunnerAttemptInfo | null>(null);
-    const [retryFlash, setRetryFlash] = useState<ArenaRunnerAttemptInfo | null>(null);
+    const [machineRunnerError, setMachineRunnerError] = useState<string | null>(null);
     const [machineViolation, setMachineViolation] = useState<{
         fullText: string;
         lastValidPrefix: string;
@@ -93,21 +94,36 @@ export default function DailyVersusPage() {
         }
     };
 
+    const isSnowball = constraint.id === 'snowball';
+    const isSnowballHard = isSnowball && settings.versusDifficulty === 'hard';
+
     const humanLetters = useMemo(() => countLetters(humanText), [humanText]);
+    const humanWords = useMemo(() => countWords(humanText), [humanText]);
     const rawMachineLetters = useMemo(() => countLetters(machineText), [machineText]);
+    const rawMachineWords = useMemo(() => countWords(machineText), [machineText]);
 
     const machineViolationActive = !!(machineViolation && machineText === machineViolation.fullText);
     const machineHighlightStart = machineViolationActive ? machineViolation!.highlightStart : null;
     const machineHighlightEnd = machineViolationActive ? machineViolation!.highlightEnd : null;
 
     // Scoring uses ONLY the valid prefix if the machine violated.
-    const machineScoreLetters = machineViolationActive
-        ? countLetters(machineViolation!.lastValidPrefix)
-        : rawMachineLetters;
+    // For Snowball we compare WORD COUNT (not characters).
+    const machineScore = isSnowball
+        ? (machineViolationActive
+            ? countWords(machineViolation!.lastValidPrefix)
+            : rawMachineWords)
+        : (machineViolationActive
+            ? countLetters(machineViolation!.lastValidPrefix)
+            : rawMachineLetters);
 
-    const beatsMachine = humanLetters > machineScoreLetters;
+    // Display words for Snowball in general (not just hard), since it's the natural unit.
+    const humanScore = isSnowball ? humanWords : humanLetters;
+    const scoreUnitLabel = isSnowball ? s.common.words : s.common.chars;
+
+    const beatsMachine = humanScore > machineScore;
     const machineDone = machineStarted && (machineStatus === 'failed' || machineStatus === 'stopped');
-    const machineRetrying = !!machineAttemptInfo?.retrying;
+    const machineFailed = machineStarted && machineStatus === 'failed';
+    const machineIsGenerating = machineStarted && !machineDone;
 
     const machineDisplayText = useMemo(() => {
         // If we violated, do not display any extra words after the violating token.
@@ -115,21 +131,22 @@ export default function DailyVersusPage() {
         return machineText.slice(0, machineHighlightEnd);
     }, [machineText, machineHighlightEnd]);
 
-    // Keep a brief visible retry indicator even if a retry happens very fast.
-    useEffect(() => {
-        if (machineAttemptInfo?.retrying) {
-            setRetryFlash(machineAttemptInfo);
-            return;
-        }
-        if (!retryFlash) return;
-        const id = window.setTimeout(() => setRetryFlash(null), 1200);
-        return () => window.clearTimeout(id);
-    }, [machineAttemptInfo, retryFlash]);
+    const showAttempt = settings.versusDifficulty === 'hard' && machineAttemptInfo;
 
+    // Tooltip: keep it simple and adapt.
+    // In Snowball hard mode, the machine can try up to 7 times per word.
     const machineDifficultyTooltip =
-        lang === 'fr'
-            ? 'La Machine a droit à 5 tentatives.'
-            : 'The Machine gets up to 5 attempts.';
+        isSnowball && settings.versusDifficulty === 'hard'
+            ? (lang === 'fr'
+                ? 'La Machine a droit à 7 tentatives.'
+                : 'The Machine gets up to 7 attempts.')
+            : (lang === 'fr'
+                ? 'La Machine a droit à 5 tentatives.'
+                : 'The Machine gets up to 5 attempts.');
+
+    // NOTE: We intentionally keep the single generation indicator visible
+    // for the whole time the runner is active (including retries), and hide
+    // it only once the machine reaches a terminal state (stopped/failed).
 
     return (
         <main className="min-h-screen w-full bg-background">
@@ -188,7 +205,15 @@ export default function DailyVersusPage() {
                         <CardHeader className="p-4">
                             <div className="flex items-center justify-between gap-2">
                                 <CardTitle className="text-base">{s.versus.human}</CardTitle>
-                                <div className="text-xs text-muted-foreground">{humanLetters} {s.common.chars}</div>
+                                <div className="text-xs text-muted-foreground">
+                                    {isSnowball
+                                        ? (<>
+                                            {humanWords} {s.common.words}
+                                        </>)
+                                        : (<>
+                                            {humanLetters} {s.common.chars}
+                                        </>)}
+                                </div>
                             </div>
                         </CardHeader>
                         <CardContent className="p-4 pt-0 space-y-3">
@@ -211,8 +236,15 @@ export default function DailyVersusPage() {
                                 <CardTitle className="text-base">{s.versus.machine}</CardTitle>
 
                                 <div className="flex items-center gap-3">
+                                    {machineIsGenerating && (
+                                        <div className="inline-flex items-center gap-2 whitespace-nowrap rounded-full bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
+                                            {lang === 'fr' ? 'Génération' : 'Generating'}
+                                            <LoadingDots />
+                                        </div>
+                                    )}
+
                                     <div className="text-xs text-muted-foreground tabular-nums whitespace-nowrap">
-                                        {machineScoreLetters} {s.common.chars}
+                                        {machineScore} {scoreUnitLabel}
                                     </div>
 
                                     <TooltipProvider>
@@ -256,14 +288,16 @@ export default function DailyVersusPage() {
                                             className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
                                             onClick={() => {
                                                 setMachineStarted(true);
-                                                setMachineTargetChars(humanLetters);
+                                                // Surface the progress indicator immediately.
+                                                setMachineStatus('running');
+                                                setMachineTarget(humanScore);
                                                 setMachineText('');
                                                 setMachineAttemptInfo(null);
-                                                setRetryFlash(null);
+                                                setMachineRunnerError(null);
                                                 setMachineViolation(null);
                                                 setMachineRunKey((k) => k + 1);
                                             }}
-                                            disabled={humanLetters === 0}
+                                            disabled={humanScore === 0}
                                         >
                                             {lang === 'fr' ? 'Au tour de la Machine' : "Machine's turn"}
                                         </button>
@@ -305,24 +339,25 @@ export default function DailyVersusPage() {
                                         headerEnabled={false}
                                         statusEnabled={false}
                                         onTextChange={setMachineText}
-                                        onStatusChange={setMachineStatus}
+                                        onStatusChange={(st) => {
+                                            setMachineStatus(st);
+                                        }}
                                         onAttemptInfoChange={setMachineAttemptInfo}
+                                        onLastErrorChange={setMachineRunnerError}
                                         onViolation={(v) => setMachineViolation(v)}
                                         autoRun
                                         controlsEnabled={false}
-                                        minCharsToBeat={machineTargetChars}
+                                        minCharsToBeat={isSnowballHard ? undefined : machineTarget}
+                                        minWordsToBeat={isSnowballHard ? machineTarget : undefined}
                                         renderOutput={false}
                                         truncateOnViolation={false}
                                     />
 
-                                    {/* Retry indicator BELOW the text box */}
-                                    {(machineRetrying || retryFlash) && (
-                                        <div className="text-xs text-muted-foreground">
-                                            <Badge variant="secondary">
-                                                {lang === 'fr'
-                                                    ? `Nouvelle tentative ${(machineAttemptInfo ?? retryFlash)!.attempt}/${(machineAttemptInfo ?? retryFlash)!.max}…`
-                                                    : `Retrying ${(machineAttemptInfo ?? retryFlash)!.attempt}/${(machineAttemptInfo ?? retryFlash)!.max}…`}
-                                            </Badge>
+                                    {/* When the runner is hidden, failures can look like "nothing happened".
+                                        Show a compact error message when the machine fails. */}
+                                    {machineFailed && (machineRunnerError || machineViolation?.error) && (
+                                        <div className="text-xs text-destructive">
+                                            {machineRunnerError ?? machineViolation?.error}
                                         </div>
                                     )}
 
@@ -340,11 +375,12 @@ export default function DailyVersusPage() {
                             className="inline-flex items-center justify-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-accent"
                             onClick={() => {
                                 // Let the user extend their text, then rerun the Machine against the new length.
-                                setMachineTargetChars(humanLetters);
+                                setMachineTarget(humanScore);
                                 setMachineText('');
                                 setMachineAttemptInfo(null);
-                                setRetryFlash(null);
+                                setMachineRunnerError(null);
                                 setMachineViolation(null);
+                                setMachineStatus('running');
                                 setMachineRunKey((k) => k + 1);
                             }}
                         >
@@ -354,7 +390,7 @@ export default function DailyVersusPage() {
                     <SubmitScoreDialog
                         lang={lang}
                         triggerLabel={lang === 'fr' ? 'Valider & envoyer' : 'Validate & submit'}
-                        disabled={submitting || humanLetters === 0 || !machineStarted || !beatsMachine}
+                        disabled={submitting || humanScore === 0 || !machineStarted || !beatsMachine}
                         onSubmit={submit}
                     />
                 </div>

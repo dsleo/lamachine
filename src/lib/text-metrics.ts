@@ -1,5 +1,9 @@
 export function countWords(text: string): number {
-    const m = text.trim().match(/[\w'-]+(?<!-)/g);
+    // Unicode-aware word counter.
+    // IMPORTANT: apostrophes and hyphens are treated as separators.
+    // This aligns with the constraint semantics (e.g. "m'avertir" => "m" + "avertir",
+    // "porte-monnaie" => "porte" + "monnaie").
+    const m = text.match(/[\p{L}\p{N}]+/gu);
     return m ? m.length : 0;
 }
 
