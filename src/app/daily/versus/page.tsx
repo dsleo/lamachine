@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSettings } from '@/hooks/use-settings';
 import { t } from '@/lib/i18n';
@@ -12,12 +12,14 @@ import { ArenaRunner, type ArenaRunnerAttemptInfo, type ArenaRunnerStatus } from
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SubmitScoreDialog } from '@/components/submit-score-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Switch } from '@/components/ui/switch';
+import { Slider } from '@/components/ui/slider';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { countLetters, countWords } from '@/lib/text-metrics';
 import { LoadingDots } from '@/components/loading-dots';
+
+const DIFFICILE_MODEL = process.env.NEXT_PUBLIC_MACHINE_DIFFICILE_MODEL;
 
 export default function DailyVersusPage() {
     const router = useRouter();
@@ -57,6 +59,7 @@ export default function DailyVersusPage() {
                     dayKey,
                     lang,
                     mode: 'versus',
+                    difficulty: settings.versusDifficulty,
                     nickname,
                     text: humanText,
                 }),
@@ -78,7 +81,7 @@ export default function DailyVersusPage() {
             if (json?.approved) {
                 toast({ title: lang === 'fr' ? '✅ Accepté' : '✅ Accepted', description: json.reason });
                 router.push(
-                    `/leaderboard?celebrate=1&mode=versus&dayKey=${encodeURIComponent(dayKey)}&chars=${humanLetters}&constraintId=${encodeURIComponent(challenge.constraintId satisfies ConstraintId)}&param=${encodeURIComponent(challenge.param ?? '')}`
+                    `/leaderboard?celebrate=1&mode=versus&dayKey=${encodeURIComponent(dayKey)}&chars=${humanPoints}&constraintId=${encodeURIComponent(challenge.constraintId satisfies ConstraintId)}&param=${encodeURIComponent(challenge.param ?? '')}`
                 );
             } else {
                 toast({ title: lang === 'fr' ? '❌ Refusé' : '❌ Rejected', description: json?.reason ?? '' });
@@ -98,6 +101,10 @@ export default function DailyVersusPage() {
     const isSnowballHard = isSnowball && settings.versusDifficulty === 'hard';
 
     const humanLetters = useMemo(() => countLetters(humanText), [humanText]);
+    const humanPoints = useMemo(() => {
+        const mult = settings.versusDifficulty === 'hard' ? 2.0 : settings.versusDifficulty === 'normal' ? 1.5 : 1.0;
+        return Math.floor(humanLetters * mult);
+    }, [humanLetters, settings.versusDifficulty]);
     const humanWords = useMemo(() => countWords(humanText), [humanText]);
     const rawMachineLetters = useMemo(() => countLetters(machineText), [machineText]);
     const rawMachineWords = useMemo(() => countWords(machineText), [machineText]);
@@ -125,6 +132,33 @@ export default function DailyVersusPage() {
     const machineFailed = machineStarted && machineStatus === 'failed';
     const machineIsGenerating = machineStarted && !machineDone;
 
+    // During hard-mode retries, ArenaRunner can temporarily reset the visible text
+    // (e.g. restarting from an empty/short prefix). If we hide the score when it hits 0,
+    // the header can visually flicker. Keep the last non-zero score while generating.
+    const [machineDisplayedScore, setMachineDisplayedScore] = useState(0);
+
+    useEffect(() => {
+        if (!machineStarted) {
+            setMachineDisplayedScore(0);
+            return;
+        }
+
+        // When a (re)run starts, ArenaRunner can reset the text to empty.
+        // Ensure we show a stable "0 <unit>" immediately to avoid any perceived flicker.
+        if (machineText.length === 0) {
+            setMachineDisplayedScore(0);
+        }
+
+        // When the run ends, always reflect the final score.
+        if (machineDone) {
+            setMachineDisplayedScore(machineScore);
+            return;
+        }
+
+        // While generating, only update when we have a non-zero score.
+        if (machineScore > 0) setMachineDisplayedScore(machineScore);
+    }, [machineStarted, machineDone, machineScore]);
+
     const machineDisplayText = useMemo(() => {
         // If we violated, do not display any extra words after the violating token.
         if (machineHighlightEnd === null) return machineText;
@@ -133,16 +167,35 @@ export default function DailyVersusPage() {
 
     const showAttempt = settings.versusDifficulty === 'hard' && machineAttemptInfo;
 
+    const difficultyLabel = useMemo(() => {
+        const d = settings.versusDifficulty;
+        if (lang === 'fr') {
+            if (d === 'easy') return 'Facile';
+            if (d === 'normal') return 'Normal';
+            return 'Difficile';
+        }
+        if (d === 'easy') return 'Easy';
+        if (d === 'normal') return 'Normal';
+        return 'Hard';
+    }, [lang, settings.versusDifficulty]);
+
+    const difficultyIndex = settings.versusDifficulty === 'easy' ? 0 : settings.versusDifficulty === 'normal' ? 1 : 2;
+
     // Tooltip: keep it simple and adapt.
     // In Snowball hard mode, the machine can try up to 7 times per word.
-    const machineDifficultyTooltip =
-        isSnowball && settings.versusDifficulty === 'hard'
-            ? (lang === 'fr'
-                ? 'La Machine a droit à 7 tentatives.'
-                : 'The Machine gets up to 7 attempts.')
-            : (lang === 'fr'
-                ? 'La Machine a droit à 5 tentatives.'
-                : 'The Machine gets up to 5 attempts.');
+    const machineDifficultyTooltip = (() => {
+        // Snowball hard mode is word-by-word generation with retries per word.
+        if (isSnowball && settings.versusDifficulty === 'hard') {
+            return lang === 'fr'
+                ? 'La Machine a droit à 7 tentatives par mot.'
+                : 'The Machine gets up to 7 attempts per word.';
+        }
+        // Non-snowball: attempts are run-level retries.
+        const attempts = settings.versusDifficulty === 'hard' ? 12 : settings.versusDifficulty === 'normal' ? 5 : 1;
+        return lang === 'fr'
+            ? `La Machine a droit à ${attempts} tentative${attempts > 1 ? 's' : ''}.`
+            : `The Machine gets up to ${attempts} attempt${attempts > 1 ? 's' : ''}.`;
+    })();
 
     // NOTE: We intentionally keep the single generation indicator visible
     // for the whole time the runner is active (including retries), and hide
@@ -205,15 +258,17 @@ export default function DailyVersusPage() {
                         <CardHeader className="p-4">
                             <div className="flex items-center justify-between gap-2">
                                 <CardTitle className="text-base">{s.versus.human}</CardTitle>
-                                <div className="text-xs text-muted-foreground">
-                                    {isSnowball
-                                        ? (<>
+                                {isSnowball
+                                    ? (humanWords > 0 ? (
+                                        <div className="text-xs text-muted-foreground">
                                             {humanWords} {s.common.words}
-                                        </>)
-                                        : (<>
+                                        </div>
+                                    ) : null)
+                                    : (humanLetters > 0 ? (
+                                        <div className="text-xs text-muted-foreground">
                                             {humanLetters} {s.common.chars}
-                                        </>)}
-                                </div>
+                                        </div>
+                                    ) : null)}
                             </div>
                         </CardHeader>
                         <CardContent className="p-4 pt-0 space-y-3">
@@ -236,7 +291,7 @@ export default function DailyVersusPage() {
                                 <CardTitle className="text-base">{s.versus.machine}</CardTitle>
 
                                 <div className="flex items-center gap-3">
-                                    {machineIsGenerating && (
+                                    {machineIsGenerating && machineDisplayText.length === 0 && (
                                         <div className="inline-flex items-center gap-2 whitespace-nowrap rounded-full bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
                                             {lang === 'fr' ? 'Génération' : 'Generating'}
                                             <LoadingDots />
@@ -244,25 +299,37 @@ export default function DailyVersusPage() {
                                     )}
 
                                     <div className="text-xs text-muted-foreground tabular-nums whitespace-nowrap">
-                                        {machineScore} {scoreUnitLabel}
+                                        {machineStarted ? (
+                                            <>
+                                                {machineDisplayedScore} {scoreUnitLabel}
+                                            </>
+                                        ) : null}
                                     </div>
 
                                     <TooltipProvider>
                                         <div className="inline-flex items-center gap-2 text-xs text-muted-foreground whitespace-nowrap">
-                                            <span>{lang === 'fr' ? 'Facile' : 'Easy'}</span>
-                                            <Switch
-                                                checked={settings.versusDifficulty === 'hard'}
-                                                onCheckedChange={(checked) => update({ versusDifficulty: checked ? 'hard' : 'easy' })}
-                                                aria-label={lang === 'fr' ? 'Mode difficile (Machine)' : 'Hard mode (Machine)'}
-                                                size="sm"
-                                            />
-                                            <span>{lang === 'fr' ? 'Difficile' : 'Hard'}</span>
+                                            <span className="tabular-nums">{difficultyLabel}</span>
+                                            <div className="w-[120px]">
+                                                <Slider
+                                                    value={[difficultyIndex]}
+                                                    min={0}
+                                                    max={2}
+                                                    step={1}
+                                                    onValueChange={(v) => {
+                                                        const idx = v[0] ?? 0;
+                                                        const next = idx <= 0 ? 'easy' : idx === 1 ? 'normal' : 'hard';
+                                                        update({ versusDifficulty: next });
+                                                    }}
+                                                    aria-label={lang === 'fr' ? 'Difficulté (Machine)' : 'Difficulty (Machine)'}
+                                                />
+                                            </div>
+
                                             <Tooltip>
                                                 <TooltipTrigger asChild>
                                                     <button
                                                         type="button"
                                                         className="inline-flex h-5 w-5 items-center justify-center rounded-full border text-[10px] hover:bg-accent"
-                                                        aria-label={lang === 'fr' ? 'Info mode difficile' : 'Hard mode info'}
+                                                        aria-label={lang === 'fr' ? 'Info difficulté' : 'Difficulty info'}
                                                     >
                                                         i
                                                     </button>
@@ -292,6 +359,7 @@ export default function DailyVersusPage() {
                                                 setMachineStatus('running');
                                                 setMachineTarget(humanScore);
                                                 setMachineText('');
+                                                setMachineDisplayedScore(0);
                                                 setMachineAttemptInfo(null);
                                                 setMachineRunnerError(null);
                                                 setMachineViolation(null);
@@ -333,6 +401,7 @@ export default function DailyVersusPage() {
                                         constraint={constraint}
                                         param={challenge.param}
                                         difficulty={settings.versusDifficulty}
+                                        modelOverride={settings.versusDifficulty === 'hard' && DIFFICILE_MODEL ? DIFFICILE_MODEL : undefined}
                                         hardRetryRollbackMode="sentence"
                                         steeringEnabled={false}
                                         chrome={false}
@@ -377,6 +446,7 @@ export default function DailyVersusPage() {
                                 // Let the user extend their text, then rerun the Machine against the new length.
                                 setMachineTarget(humanScore);
                                 setMachineText('');
+                                setMachineDisplayedScore(0);
                                 setMachineAttemptInfo(null);
                                 setMachineRunnerError(null);
                                 setMachineViolation(null);

@@ -23,6 +23,8 @@ type Row = {
     createdAt: string;
     // Returned by /api/daily/top
     chars: number;
+    rawChars?: number;
+    difficulty?: string;
     nickname: string;
     text: string;
     constraintId: string;

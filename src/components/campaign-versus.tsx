@@ -170,14 +170,18 @@ export function CampaignVersus() {
                         </div>
                         <Select
                             value={settings.versusDifficulty}
-                            onValueChange={(v) => update({ versusDifficulty: (v === 'hard' ? 'hard' : 'easy') as 'easy' | 'hard' })}
+                            onValueChange={(v) => {
+                                const next = v === 'hard' ? 'hard' : v === 'normal' ? 'normal' : 'easy';
+                                update({ versusDifficulty: next });
+                            }}
                         >
                             <SelectTrigger className="h-9 w-[160px]">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="easy">{lang === 'fr' ? 'Facile' : 'Easy'}</SelectItem>
-                                <SelectItem value="hard">{lang === 'fr' ? 'Difficile (x1.5 score)' : 'Hard (x1.5 score)'}</SelectItem>
+                                <SelectItem value="normal">{lang === 'fr' ? 'Normal (x1.5 score)' : 'Normal (x1.5 score)'}</SelectItem>
+                                <SelectItem value="hard">{lang === 'fr' ? 'Difficile (x2.0 score)' : 'Hard (x2.0 score)'}</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>

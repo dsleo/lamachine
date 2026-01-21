@@ -19,7 +19,8 @@ type RunnerStatus = 'ready' | 'running' | 'stopped' | 'failed';
 export type ArenaRunnerAttemptInfo = { attempt: number; max: number; retrying: boolean };
 export type ArenaRunnerStatus = RunnerStatus;
 
-export type VersusDifficulty = 'easy' | 'hard';
+// NOTE: UI labels: FR Facile/Normal/Difficile, EN Easy/Normal/Hard.
+export type VersusDifficulty = 'easy' | 'normal' | 'hard';
 
 export type HardRetryRollbackMode = 'word' | 'sentence';
 
@@ -280,8 +281,8 @@ function buildSystemPrompt(args: {
         'If you are unsure, choose safer words. Prefer short sentences. Avoid risky letters/starts.',
         'IMPORTANT: do not split words into letters separated by spaces (no "D a n"); write normal words.',
         'If you make a mistake and are asked to retry, you must keep the overall meaning/style coherent (continue the same text), while avoiding the exact mistake.',
-        difficulty === 'hard'
-            ? 'Hard mode: be extra conservative with word choice and structure. Prefer simple syntax and low-risk tokens.'
+        difficulty !== 'easy'
+            ? 'Harder mode: be extra conservative with word choice and structure. Prefer simple syntax and low-risk tokens.'
             : '',
         'Do not mention the rules or self-commentary. Only output the text itself (no Markdown).',
         langLine,
@@ -323,6 +324,7 @@ export function ArenaRunner(props: {
     minCharsToBeat?: number;
     minWordsToBeat?: number;
     difficulty?: VersusDifficulty;
+    modelOverride?: string;
 }) {
     const {
         lang,
@@ -347,6 +349,7 @@ export function ArenaRunner(props: {
         minCharsToBeat,
         minWordsToBeat,
         difficulty = 'easy',
+        modelOverride,
     } = props;
     const s = t(lang);
 
@@ -422,12 +425,27 @@ export function ArenaRunner(props: {
     const run = async () => {
         if (!hasParam) return;
 
-        const HARD_MAX_ATTEMPTS = 5;
-        const HARD_RETRY_IF_FAILED_BEFORE_CHARS = 140;
-        const isHard = difficulty === 'hard';
-        const maxAttempts = isHard ? HARD_MAX_ATTEMPTS : 1;
+        // Difficulty tuning (non-snowball):
+        // - easy: slightly less random than before (temp 0.55 instead of 0.7)
+        // - normal: old hard mode (5 attempts, window 140)
+        // - hard: much stronger (12 attempts, window 600) + better model (via modelOverride or env)
+        const difficultyConfig = (() => {
+            if (difficulty === 'hard') {
+                return { maxAttempts: 12, retryBeforeChars: 600, t1: 0.3, tRetry: 0.25, maxTokens: 512 };
+            }
+            if (difficulty === 'normal') {
+                return { maxAttempts: 5, retryBeforeChars: 140, t1: 0.3, tRetry: 0.25, maxTokens: 512 };
+            }
+            return { maxAttempts: 1, retryBeforeChars: 0, t1: 0.55, tRetry: 0.55, maxTokens: 384 };
+        })();
 
-        const isSnowballHard = isHard && constraint.id === 'snowball';
+        const maxAttempts = difficultyConfig.maxAttempts;
+        const RETRY_IF_FAILED_BEFORE_CHARS = difficultyConfig.retryBeforeChars;
+        const maxTokens = difficultyConfig.maxTokens;
+
+        const model = (difficulty === 'hard' ? modelOverride : undefined) ?? DEFAULT_MODEL;
+
+        const isSnowballHard = difficulty === 'hard' && constraint.id === 'snowball';
 
         reset();
         setStatus('running');
@@ -453,6 +471,8 @@ export function ArenaRunner(props: {
             const DELAY_MS = 120;
             const MAX_WORDS = 90;
             const MAX_RETRIES_PER_WORD = 7;
+
+            const snowballModel = (difficulty === 'hard' ? modelOverride : undefined) ?? DEFAULT_MODEL;
 
             let acc = '';
             let lastLetters: number | null = null;
@@ -488,7 +508,7 @@ export function ArenaRunner(props: {
                             headers: { 'Content-Type': 'application/json' },
                             signal: controller.signal,
                             body: JSON.stringify({
-                                model: DEFAULT_MODEL,
+                                model: snowballModel,
                                 system: systemBase,
                                 prompt,
                                 temperature: 0.2,
@@ -731,19 +751,35 @@ export function ArenaRunner(props: {
             const controller = new AbortController();
             abortRef.current = controller;
 
-            let res: Response;
-            try {
-                res = await fetch('/api/openai/stream', {
+            const doFetch = async (candidateModel: string): Promise<Response> => {
+                return fetch('/api/openai/stream', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     signal: controller.signal,
                     body: JSON.stringify({
-                        model: DEFAULT_MODEL,
+                        model: candidateModel,
                         system,
                         prompt,
                         temperature,
+                        maxTokens,
                     }),
                 });
+            };
+
+            let res: Response;
+            try {
+                res = await doFetch(model);
+                // If the configured model isn't available, fallback to DEFAULT_MODEL.
+                // This keeps the game functional even if e.g. "gpt-5-mini" isn't enabled.
+                if (!res.ok && model !== DEFAULT_MODEL) {
+                    const msg = await res.text().catch(() => '');
+                    if (/model|not found|does not exist|permission|access|unknown/i.test(msg)) {
+                        res = await doFetch(DEFAULT_MODEL);
+                    } else {
+                        // Restore body text for downstream.
+                        return { ok: false, reason: msg || 'Request failed', lastValidPrefix: baseText, fullText: baseText };
+                    }
+                }
             } catch (e) {
                 // Abort is normal.
                 if (controller.signal.aborted) {
@@ -876,7 +912,7 @@ export function ArenaRunner(props: {
         let currentText = '';
 
         // Attempt 1: fresh text.
-        const t1 = isHard ? 0.3 : 0.7;
+        const t1 = difficultyConfig.t1;
         const r1 = await streamOnce({
             system: systemBase,
             prompt: initialPrompt,
@@ -902,10 +938,10 @@ export function ArenaRunner(props: {
         let lastValidPrefix = r1.lastValidPrefix;
         let lastErrorMessage = r1.reason;
 
-        while (isHard && attempt < maxAttempts) {
+        while (difficulty !== 'easy' && attempt < maxAttempts) {
             attempt += 1;
             // Only retry if the failure happened early.
-            if (lastValidPrefix.length >= HARD_RETRY_IF_FAILED_BEFORE_CHARS) break;
+            if (RETRY_IF_FAILED_BEFORE_CHARS > 0 && lastValidPrefix.length >= RETRY_IF_FAILED_BEFORE_CHARS) break;
 
             setAttemptInfo({ attempt, max: maxAttempts, retrying: true });
 
@@ -921,7 +957,7 @@ export function ArenaRunner(props: {
             const r = await streamOnce({
                 system: systemBase,
                 prompt: retryPrompt,
-                temperature: 0.25,
+                temperature: difficultyConfig.tRetry,
                 baseText: lastValidPrefix,
                 rollbackWholeWordOnFail: true,
                 hardRollbackMode: hardRetryRollbackMode,

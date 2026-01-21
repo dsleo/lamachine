@@ -44,13 +44,22 @@ export const dailySubmissions = pgTable(
         lang: text('lang').notNull(), // 'fr' | 'en'
         mode: text('mode').notNull(), // 'coach' | 'versus'
 
+        // Versus-only: difficulty tier used to compute points.
+        // Stored for auditing + leaderboard display.
+        difficulty: text('difficulty').notNull().default('easy'),
+
         // Snapshot of daily rule (makes later auditing easier)
         constraintId: text('constraint_id').notNull(),
         param: text('param').notNull(),
 
         nickname: text('nickname').notNull(),
         text: text('text').notNull(),
+        // For backward compatibility this column is still called `chars`,
+        // but it now represents the leaderboard SCORE (aka points).
         chars: integer('chars').notNull(),
+
+        // Raw character count (letters-only) before difficulty multiplier.
+        rawChars: integer('raw_chars').notNull().default(0),
 
         semanticApproved: integer('semantic_approved').notNull(), // 0/1 (sqlite-like); pg boolean is fine but keep int for simplicity
         semanticReason: text('semantic_reason').notNull(),

@@ -29,6 +29,13 @@
       "when": 1768816012213,
       "tag": "0003_flimsy_piledriver",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1768984245441,
+      "tag": "0004_soft_captain_cross",
+      "breakpoints": true
     }
   ]
 }

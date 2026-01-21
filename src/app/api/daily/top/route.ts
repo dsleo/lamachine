@@ -37,6 +37,8 @@ export async function GET(req: Request) {
                 createdAt: dailySubmissions.createdAt,
                 nickname: dailySubmissions.nickname,
                 chars: dailySubmissions.chars,
+                rawChars: dailySubmissions.rawChars,
+                difficulty: dailySubmissions.difficulty,
                 text: dailySubmissions.text,
                 semanticReason: dailySubmissions.semanticReason,
             })
