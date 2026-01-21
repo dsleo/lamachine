@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { Constraint } from '@/lib/constraints';
+import { normalizeText, type Constraint } from '@/lib/constraints';
 import type { Lang } from '@/lib/i18n';
 import { t } from '@/lib/i18n';
 import { pickQuip } from '@/lib/quips';
@@ -12,13 +12,15 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
+import { LoadingDots } from '@/components/loading-dots';
 
 type RunnerStatus = 'ready' | 'running' | 'stopped' | 'failed';
 
 export type ArenaRunnerAttemptInfo = { attempt: number; max: number; retrying: boolean };
 export type ArenaRunnerStatus = RunnerStatus;
 
-export type VersusDifficulty = 'easy' | 'hard';
+// NOTE: UI labels: FR Facile/Normal/Difficile, EN Easy/Normal/Hard.
+export type VersusDifficulty = 'easy' | 'normal' | 'hard';
 
 export type HardRetryRollbackMode = 'word' | 'sentence';
 
@@ -153,15 +155,90 @@ function endsWithBoundary(text: string) {
     return /[\s.,;:!?\-"'’]$/.test(text);
 }
 
+function countSnowballWordLetters(word: string): number {
+    // Count letters only, ignoring apostrophes/hyphens/punctuation/digits.
+    // Accents are normalized away so "é" counts as one letter.
+    const normalized = normalizeText(word.toLowerCase());
+    const lettersOnly = normalized.replace(/[^a-z]/g, '');
+    return lettersOnly.length;
+}
+
+function getLastSnowballWordLengthFromPrefix(prefix: string): number | null {
+    // Extract words using the same semantics as the Snowball constraint:
+    // words are sequences of letters/numbers; apostrophes/hyphens are separators.
+    const words = prefix.match(/([\p{L}\p{N}]+)/gu) ?? [];
+    if (words.length === 0) return null;
+    const last = words[words.length - 1] ?? '';
+    const len = countSnowballWordLetters(last);
+    return len > 0 ? len : null;
+}
+
+function sleep(ms: number) {
+    return new Promise<void>((r) => setTimeout(r, ms));
+}
+
+function stripToSingleWord(candidate: string): string {
+    // Keep only the first WORD_REGEX-like token.
+    const m = candidate.match(/^[\s\r\n]*([\p{L}\p{N}]+)/u);
+    return (m?.[1] ?? '').trim();
+}
+
+function computeHighlightBoundsForAppendingWord(prefix: string, word: string): { start: number; end: number } {
+    if (!prefix) return { start: 0, end: word.length };
+    const sep = /\s$/.test(prefix) ? '' : ' ';
+    const start = (prefix + sep).length;
+    return { start, end: start + word.length };
+}
+
+function buildSnowballNextWordPrompt(args: {
+    lang: Lang;
+    prefix: string;
+    targetLetters: number;
+}): string {
+    const { lang, prefix, targetLetters } = args;
+    const excerpt = prefix.trim().slice(-140);
+    if (lang === 'fr') {
+        return [
+            'Tu vas écrire un TEXTE cohérent en français, un mot à la fois.',
+            'Contrainte: BOULE DE NEIGE. Chaque mot a exactement 1 LETTRE de plus que le précédent.',
+            `Tâche: propose le PROCHAIN mot, qui doit avoir EXACTEMENT ${targetLetters} lettres.`,
+            'Les apostrophes, traits d’union, nombres et ponctuations ne comptent PAS comme des lettres.',
+            'IMPORTANT: le texte complet avec ce nouveau mot doit rester cohérent et avoir du sens (même poétiquement).',
+            'Forme conseillée: écris une phrase simple et grammaticale, avec un sujet/verbe puis compléments.',
+            'Évite les suites de noms / adjectifs sans liaison.',
+            excerpt ? `Contexte (fin du texte actuel): "${excerpt}"` : 'Contexte: début du texte.',
+            '',
+            'Règles de sortie STRICTES:',
+            '- Réponds UNIQUEMENT avec ce mot (un seul token).',
+            '- Pas d’espace avant/après. Pas de ponctuation. Pas de guillemets. Pas de retour à la ligne.',
+        ].join('\n');
+    }
+
+    return [
+        'You are writing a coherent English text, one word at a time.',
+        'Constraint: SNOWBALL. Each word has exactly 1 more LETTER than the previous word.',
+        `Task: output the NEXT word with EXACTLY ${targetLetters} letters.`,
+        'Apostrophes, hyphens, numbers, and punctuation do NOT count as letters.',
+        'IMPORTANT: the full text with this new word appended must stay coherent and make sense (poetically is OK, broken grammar is NOT).',
+        'Prefer a simple grammatical clause (subject/verb + complements). Avoid noun/adjective piles.',
+        excerpt ? `Context (end of current text): "${excerpt}"` : 'Context: start of the text.',
+        '',
+        'STRICT output rules:',
+        '- Output ONLY the word (single token).',
+        '- No surrounding whitespace. No punctuation. No quotes. No newline.',
+    ].join('\n');
+}
+
 function buildSystemPrompt(args: {
     lang: Lang;
     constraint: Constraint;
     param: string;
     steering?: string;
     minCharsToBeat?: number;
+    minWordsToBeat?: number;
     difficulty?: VersusDifficulty;
 }) {
-    const { lang, constraint, param, steering, minCharsToBeat, difficulty } = args;
+    const { lang, constraint, param, steering, minCharsToBeat, minWordsToBeat, difficulty } = args;
     const constraintLine =
         constraint.parameter.kind === 'none'
             ? `Constraint: ${constraint.name} — ${constraint.description}`
@@ -177,8 +254,21 @@ function buildSystemPrompt(args: {
         : '';
 
     const versusGoalBlock =
-        typeof minCharsToBeat === 'number' && Number.isFinite(minCharsToBeat) && minCharsToBeat > 0
-            ? `Versus goal: produce a coherent text STRICTLY longer than ${Math.floor(minCharsToBeat)} characters.`
+        typeof minWordsToBeat === 'number' && Number.isFinite(minWordsToBeat) && minWordsToBeat > 0
+            ? `Versus goal: produce a coherent text STRICTLY longer than ${Math.floor(minWordsToBeat)} words.`
+            : typeof minCharsToBeat === 'number' && Number.isFinite(minCharsToBeat) && minCharsToBeat > 0
+                ? `Versus goal: produce a coherent text STRICTLY longer than ${Math.floor(minCharsToBeat)} characters.`
+                : '';
+
+    const snowballHardHelpBlock =
+        difficulty === 'hard' && constraint.id === 'snowball'
+            ? [
+                'Snowball specific rules clarification:',
+                '- Each word must have EXACTLY 1 more LETTER than the previous word.',
+                '- Count ONLY letters (after removing accents/diacritics).',
+                '- Apostrophes, hyphens, numbers, and punctuation do NOT count as letters (and act like separators).',
+                '- Avoid risky contractions/hyphenated forms.'
+            ].join('\n')
             : '';
 
     return [
@@ -191,12 +281,13 @@ function buildSystemPrompt(args: {
         'If you are unsure, choose safer words. Prefer short sentences. Avoid risky letters/starts.',
         'IMPORTANT: do not split words into letters separated by spaces (no "D a n"); write normal words.',
         'If you make a mistake and are asked to retry, you must keep the overall meaning/style coherent (continue the same text), while avoiding the exact mistake.',
-        difficulty === 'hard'
-            ? 'Hard mode: be extra conservative with word choice and structure. Prefer simple syntax and low-risk tokens.'
+        difficulty !== 'easy'
+            ? 'Harder mode: be extra conservative with word choice and structure. Prefer simple syntax and low-risk tokens.'
             : '',
         'Do not mention the rules or self-commentary. Only output the text itself (no Markdown).',
         langLine,
         constraintLine,
+        snowballHardHelpBlock,
         steeringBlock,
         versusGoalBlock,
     ]
@@ -212,6 +303,7 @@ export function ArenaRunner(props: {
     onTextChange?: (text: string) => void;
     onStatusChange?: (status: RunnerStatus) => void;
     onAttemptInfoChange?: (info: ArenaRunnerAttemptInfo | null) => void;
+    onLastErrorChange?: (error: string | null) => void;
     autoRun?: boolean;
     controlsEnabled?: boolean;
     controlsPlacement?: 'footer' | 'steering';
@@ -230,7 +322,9 @@ export function ArenaRunner(props: {
         highlightEnd: number;
     }) => void;
     minCharsToBeat?: number;
+    minWordsToBeat?: number;
     difficulty?: VersusDifficulty;
+    modelOverride?: string;
 }) {
     const {
         lang,
@@ -240,6 +334,7 @@ export function ArenaRunner(props: {
         onTextChange,
         onStatusChange,
         onAttemptInfoChange,
+        onLastErrorChange,
         autoRun = false,
         controlsEnabled = true,
         controlsPlacement = 'footer',
@@ -252,7 +347,9 @@ export function ArenaRunner(props: {
         hardRetryRollbackMode = 'word',
         onViolation,
         minCharsToBeat,
+        minWordsToBeat,
         difficulty = 'easy',
+        modelOverride,
     } = props;
     const s = t(lang);
 
@@ -275,6 +372,10 @@ export function ArenaRunner(props: {
     useEffect(() => {
         onAttemptInfoChange?.(attemptInfo);
     }, [attemptInfo, onAttemptInfoChange]);
+
+    useEffect(() => {
+        onLastErrorChange?.(lastError);
+    }, [lastError, onLastErrorChange]);
 
     const requiresParam = constraint.parameter.kind !== 'none';
     const hasParam = !requiresParam || !!param;
@@ -324,10 +425,27 @@ export function ArenaRunner(props: {
     const run = async () => {
         if (!hasParam) return;
 
-        const HARD_MAX_ATTEMPTS = 5;
-        const HARD_RETRY_IF_FAILED_BEFORE_CHARS = 140;
-        const isHard = difficulty === 'hard';
-        const maxAttempts = isHard ? HARD_MAX_ATTEMPTS : 1;
+        // Difficulty tuning (non-snowball):
+        // - easy: slightly less random than before (temp 0.55 instead of 0.7)
+        // - normal: old hard mode (5 attempts, window 140)
+        // - hard: much stronger (12 attempts, window 600) + better model (via modelOverride or env)
+        const difficultyConfig = (() => {
+            if (difficulty === 'hard') {
+                return { maxAttempts: 12, retryBeforeChars: 600, t1: 0.3, tRetry: 0.25, maxTokens: 512 };
+            }
+            if (difficulty === 'normal') {
+                return { maxAttempts: 5, retryBeforeChars: 140, t1: 0.3, tRetry: 0.25, maxTokens: 512 };
+            }
+            return { maxAttempts: 1, retryBeforeChars: 0, t1: 0.55, tRetry: 0.55, maxTokens: 384 };
+        })();
+
+        const maxAttempts = difficultyConfig.maxAttempts;
+        const RETRY_IF_FAILED_BEFORE_CHARS = difficultyConfig.retryBeforeChars;
+        const maxTokens = difficultyConfig.maxTokens;
+
+        const model = (difficulty === 'hard' ? modelOverride : undefined) ?? DEFAULT_MODEL;
+
+        const isSnowballHard = difficulty === 'hard' && constraint.id === 'snowball';
 
         reset();
         setStatus('running');
@@ -339,8 +457,145 @@ export function ArenaRunner(props: {
             param,
             steering: steeringEnabled ? steering : undefined,
             minCharsToBeat,
+            minWordsToBeat,
             difficulty,
         });
+
+        // Robust Snowball hard mode:
+        // Instead of free-streaming a whole paragraph (LLMs are bad at counting),
+        // generate one word at a time and locally enforce the letter-count rule.
+        if (isSnowballHard) {
+            const controller = new AbortController();
+            abortRef.current = controller;
+
+            const DELAY_MS = 120;
+            const MAX_WORDS = 90;
+            const MAX_RETRIES_PER_WORD = 7;
+
+            const snowballModel = (difficulty === 'hard' ? modelOverride : undefined) ?? DEFAULT_MODEL;
+
+            let acc = '';
+            let lastLetters: number | null = null;
+            let producedWords = 0;
+
+            // pick a safe start length
+            let nextTarget = 2;
+
+            while (!controller.signal.aborted) {
+                if (producedWords >= MAX_WORDS) break;
+
+                nextTarget = lastLetters === null ? 2 : lastLetters + 1;
+
+                let lastCandidate = '';
+                let lastCandidateLetters = 0;
+                let okWord: string | null = null;
+
+                // Surface progress as “Tentative X/Y …” while we try to find an acceptable next word.
+                setAttemptInfo({ attempt: 1, max: MAX_RETRIES_PER_WORD, retrying: true });
+
+                for (let attempt = 1; attempt <= MAX_RETRIES_PER_WORD; attempt += 1) {
+                    setAttemptInfo({ attempt, max: MAX_RETRIES_PER_WORD, retrying: true });
+                    const prompt = buildSnowballNextWordPrompt({
+                        lang,
+                        prefix: acc,
+                        targetLetters: nextTarget,
+                    });
+
+                    let res: Response;
+                    try {
+                        res = await fetch('/api/openai/stream', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            signal: controller.signal,
+                            body: JSON.stringify({
+                                model: snowballModel,
+                                system: systemBase,
+                                prompt,
+                                temperature: 0.2,
+                                maxTokens: 12,
+                                // NOTE: server limits stop sequences to 8.
+                                // OpenAI enforces a small max size on `stop` (server trims too).
+                                stop: ['\n', ' ', '.', ','],
+                            }),
+                        });
+                    } catch (e) {
+                        if (controller.signal.aborted) {
+                            setStatus('stopped');
+                            return;
+                        }
+                        setLastError(e instanceof Error ? e.message : 'Request failed');
+                        setStatus('failed');
+                        return;
+                    }
+
+                    if (!res.ok) {
+                        const msg = await res.text().catch(() => 'Request failed');
+                        setLastError(msg || 'Request failed');
+                        setStatus('failed');
+                        return;
+                    }
+
+                    const raw = (await res.text().catch(() => '')).trim();
+                    const word = stripToSingleWord(raw);
+                    const letters = countSnowballWordLetters(word);
+                    lastCandidate = word;
+                    lastCandidateLetters = letters;
+
+                    if (word && letters === nextTarget) {
+                        okWord = word;
+                        break;
+                    }
+                }
+
+                setAttemptInfo({ attempt: 1, max: MAX_RETRIES_PER_WORD, retrying: false });
+
+                if (!okWord) {
+                    // Show the last attempted candidate as the violating token in red.
+                    const fullText = acc ? `${acc} ${lastCandidate}` : lastCandidate;
+                    const { start: highlightStart, end: highlightEnd } = computeHighlightBoundsForAppendingWord(acc, lastCandidate);
+                    onViolation?.({
+                        fullText,
+                        lastValidPrefix: acc,
+                        error:
+                            lang === 'fr'
+                                ? `Le mot "${lastCandidate}" doit avoir ${nextTarget} lettres (actuellement ${lastCandidateLetters}).`
+                                : `The word "${lastCandidate}" must have ${nextTarget} letters (currently ${lastCandidateLetters}).`,
+                        highlightStart,
+                        highlightEnd,
+                    });
+                    setText(fullText);
+                    onTextChange?.(fullText);
+                    setLastError(
+                        lang === 'fr'
+                            ? `Impossible de trouver un mot de ${nextTarget} lettres après ${MAX_RETRIES_PER_WORD} essais.`
+                            : `Could not find a ${nextTarget}-letter word after ${MAX_RETRIES_PER_WORD} tries.`
+                    );
+                    setStatus('failed');
+                    setAttemptInfo(null);
+                    return;
+                }
+
+                acc = acc ? `${acc} ${okWord}` : okWord;
+                producedWords += 1;
+                lastLetters = nextTarget;
+
+                setText(acc);
+                onTextChange?.(acc);
+
+                // Visible pace.
+                await sleep(DELAY_MS);
+            }
+
+            if (controller.signal.aborted) {
+                setStatus('stopped');
+                setAttemptInfo(null);
+                return;
+            }
+
+            setStatus('stopped');
+            setAttemptInfo(null);
+            return;
+        }
 
         const initialPrompt =
             lang === 'fr'
@@ -360,6 +615,57 @@ export function ArenaRunner(props: {
 
             const restartingFromScratch = prefixLen === 0;
 
+            // Special helper for Snowball hard mode:
+            // LLMs are notoriously bad at counting letters, so we explicitly state
+            // what the next word length must be.
+            const snowballHelperFr = (() => {
+                if (constraint.id !== 'snowball') return '';
+                if (!lastValidPrefix.trim()) {
+                    return [
+                        'Boule de neige — AIDE:',
+                        'Tu dois produire une suite de mots où chaque mot a exactement 1 lettre de plus que le précédent.',
+                        'Les apostrophes, traits d’union et ponctuations sont des SÉPARATEURS: ils ne comptent pas comme des lettres.',
+                        'Quand tu choisis un mot, COMPTE ses lettres (sans accents) et assure-toi qu’il a la bonne longueur.',
+                        'Le prochain mot peut être de longueur 1, 2 ou plus: choisis un départ simple et sûr.'
+                    ].join('\n');
+                }
+
+                const prev = getLastSnowballWordLengthFromPrefix(lastValidPrefix);
+                if (!prev) return '';
+                const target = prev + 1;
+                return [
+                    'Boule de neige — AIDE:',
+                    `Le dernier mot valide a ${prev} lettres.`,
+                    `Ton PROCHAIN mot doit avoir EXACTEMENT ${target} lettres.`,
+                    'Rappel: ne compte QUE les lettres A-Z après normalisation (pas d’apostrophe, pas de tiret, pas de chiffres, pas de ponctuation).',
+                    'Commence immédiatement par ce prochain mot.'
+                ].join('\n');
+            })();
+
+            const snowballHelperEn = (() => {
+                if (constraint.id !== 'snowball') return '';
+                if (!lastValidPrefix.trim()) {
+                    return [
+                        'Snowball — HELP:',
+                        'You must produce a sequence of words where each word has exactly 1 more letter than the previous one.',
+                        'Apostrophes, hyphens, and punctuation are SEPARATORS: they do NOT count as letters.',
+                        'When you choose a word, COUNT its letters (accents removed) and ensure it has the correct length.',
+                        'The next word can start at length 1, 2 or more: pick a simple safe start.'
+                    ].join('\n');
+                }
+
+                const prev = getLastSnowballWordLengthFromPrefix(lastValidPrefix);
+                if (!prev) return '';
+                const target = prev + 1;
+                return [
+                    'Snowball — HELP:',
+                    `The last valid word has ${prev} letters.`,
+                    `Your NEXT word must have EXACTLY ${target} letters.`,
+                    'Reminder: count ONLY A-Z letters after normalization (no apostrophes, no hyphens, no digits, no punctuation).',
+                    'Start immediately with that next word.'
+                ].join('\n');
+            })();
+
             if (lang === 'fr') {
                 return [
                     `Tentative ${attemptIndex}/${maxAttempts}.`,
@@ -373,6 +679,7 @@ export function ArenaRunner(props: {
                     restartingFromScratch
                         ? "Aucun préfixe valide (l’erreur est arrivée dès le début)."
                         : `La dernière portion valide se termine au caractère ${prefixLen}.`,
+                    snowballHelperFr ? `\n${snowballHelperFr}` : '',
                     '',
                     'Contexte autour de l’erreur:',
                     '--- AVANT (valide) ---',
@@ -406,6 +713,7 @@ export function ArenaRunner(props: {
                 restartingFromScratch
                     ? 'There is no valid prefix (the failure happened immediately).'
                     : `The last valid prefix ends at character ${prefixLen}.`,
+                snowballHelperEn ? `\n${snowballHelperEn}` : '',
                 '',
                 'Context around the failure:',
                 '--- BEFORE (valid) ---',
@@ -443,19 +751,35 @@ export function ArenaRunner(props: {
             const controller = new AbortController();
             abortRef.current = controller;
 
-            let res: Response;
-            try {
-                res = await fetch('/api/openai/stream', {
+            const doFetch = async (candidateModel: string): Promise<Response> => {
+                return fetch('/api/openai/stream', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     signal: controller.signal,
                     body: JSON.stringify({
-                        model: DEFAULT_MODEL,
+                        model: candidateModel,
                         system,
                         prompt,
                         temperature,
+                        maxTokens,
                     }),
                 });
+            };
+
+            let res: Response;
+            try {
+                res = await doFetch(model);
+                // If the configured model isn't available, fallback to DEFAULT_MODEL.
+                // This keeps the game functional even if e.g. "gpt-5-mini" isn't enabled.
+                if (!res.ok && model !== DEFAULT_MODEL) {
+                    const msg = await res.text().catch(() => '');
+                    if (/model|not found|does not exist|permission|access|unknown/i.test(msg)) {
+                        res = await doFetch(DEFAULT_MODEL);
+                    } else {
+                        // Restore body text for downstream.
+                        return { ok: false, reason: msg || 'Request failed', lastValidPrefix: baseText, fullText: baseText };
+                    }
+                }
             } catch (e) {
                 // Abort is normal.
                 if (controller.signal.aborted) {
@@ -588,7 +912,7 @@ export function ArenaRunner(props: {
         let currentText = '';
 
         // Attempt 1: fresh text.
-        const t1 = isHard ? 0.3 : 0.7;
+        const t1 = difficultyConfig.t1;
         const r1 = await streamOnce({
             system: systemBase,
             prompt: initialPrompt,
@@ -614,10 +938,10 @@ export function ArenaRunner(props: {
         let lastValidPrefix = r1.lastValidPrefix;
         let lastErrorMessage = r1.reason;
 
-        while (isHard && attempt < maxAttempts) {
+        while (difficulty !== 'easy' && attempt < maxAttempts) {
             attempt += 1;
             // Only retry if the failure happened early.
-            if (lastValidPrefix.length >= HARD_RETRY_IF_FAILED_BEFORE_CHARS) break;
+            if (RETRY_IF_FAILED_BEFORE_CHARS > 0 && lastValidPrefix.length >= RETRY_IF_FAILED_BEFORE_CHARS) break;
 
             setAttemptInfo({ attempt, max: maxAttempts, retrying: true });
 
@@ -633,7 +957,7 @@ export function ArenaRunner(props: {
             const r = await streamOnce({
                 system: systemBase,
                 prompt: retryPrompt,
-                temperature: 0.25,
+                temperature: difficultyConfig.tRetry,
                 baseText: lastValidPrefix,
                 rollbackWholeWordOnFail: true,
                 hardRollbackMode: hardRetryRollbackMode,
@@ -681,16 +1005,23 @@ export function ArenaRunner(props: {
             <div
                 className={cn(
                     'inline-flex w-fit items-center rounded-full border px-2.5 py-0.5 text-[11px]',
-                    attemptInfo?.retrying && status === 'running'
+                    status === 'running'
                         ? 'border-primary/30 bg-primary/5 text-primary'
                         : 'border-transparent text-transparent'
                 )}
-                aria-hidden={!(attemptInfo?.retrying && status === 'running')}
+                aria-hidden={!(status === 'running')}
             >
-                {attemptInfo?.retrying && status === 'running'
-                    ? (lang === 'fr'
-                        ? `Nouvelle tentative ${attemptInfo.attempt}/${attemptInfo.max}…`
-                        : `Retrying ${attemptInfo.attempt}/${attemptInfo.max}…`)
+                {status === 'running'
+                    ? (
+                        <span className="inline-flex items-center gap-2">
+                            {difficulty === 'hard' && attemptInfo
+                                ? (lang === 'fr'
+                                    ? `Tentative ${attemptInfo.attempt}/${attemptInfo.max}`
+                                    : `Attempt ${attemptInfo.attempt}/${attemptInfo.max}`)
+                                : (lang === 'fr' ? 'Génération' : 'Generating')}
+                            <LoadingDots />
+                        </span>
+                    )
                     : '…'}
             </div>
             {(headerEnabled || statusEnabled) && (

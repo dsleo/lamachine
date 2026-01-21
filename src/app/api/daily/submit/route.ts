@@ -20,6 +20,7 @@ const BodySchema = z.object({
     dayKey: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     lang: z.enum(['fr', 'en']),
     mode: z.enum(['coach', 'versus']),
+    difficulty: z.enum(['easy', 'normal', 'hard']).optional(),
     nickname: z.string(),
     text: z.string().min(1).max(50_000),
 });
@@ -52,6 +53,9 @@ export async function POST(req: Request) {
 
     const challenge = getDailyChallenge(body.dayKey);
     const constraint = getConstraintById(challenge.constraintId);
+
+    const difficulty = body.mode === 'versus' ? (body.difficulty ?? 'easy') : 'easy';
+    const multiplier = difficulty === 'hard' ? 2.0 : difficulty === 'normal' ? 1.5 : 1.0;
 
     // Deterministic validation
     const res = constraint.validate(body.text, challenge.param);
@@ -94,17 +98,20 @@ export async function POST(req: Request) {
     }
 
     try {
+        const rawChars = countLetters(body.text);
         const inserted = await db
             .insert(dailySubmissions)
             .values({
                 dayKey: body.dayKey,
                 lang: body.lang,
                 mode: body.mode,
+                difficulty,
                 constraintId: challenge.constraintId,
                 param: challenge.param,
                 nickname,
                 text: body.text,
-                chars: countLetters(body.text),
+                chars: Math.floor(rawChars * multiplier),
+                rawChars,
                 semanticApproved: 1,
                 semanticReason: reason,
             })

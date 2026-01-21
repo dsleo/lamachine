@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSettings } from '@/hooks/use-settings';
 import { t } from '@/lib/i18n';
 import { getCampaign, getLevel, formatLevelGoal, levelConstraint, scoreTimedPalindrome } from '@/lib/campaign';
-import { countLetters } from '@/lib/text-metrics';
+import { countLetters, countWords } from '@/lib/text-metrics';
 import { ConstrainedTextarea } from '@/components/constrained-textarea';
 import { ArenaRunner } from '@/components/arena-runner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -64,6 +64,8 @@ export function CampaignVersus() {
         const elapsed = (clearTimeMs ?? nowMs) - startedAtMs;
         return scoreTimedPalindrome(elapsed);
     }, [level.metric, text, clearTimeMs, startedAtMs, nowMs]);
+
+    const isSnowball = constraint.id === 'snowball';
 
     const checkClear = (candidateText: string) => {
         if (level.metric === 'chars') {
@@ -168,14 +170,18 @@ export function CampaignVersus() {
                         </div>
                         <Select
                             value={settings.versusDifficulty}
-                            onValueChange={(v) => update({ versusDifficulty: (v === 'hard' ? 'hard' : 'easy') as 'easy' | 'hard' })}
+                            onValueChange={(v) => {
+                                const next = v === 'hard' ? 'hard' : v === 'normal' ? 'normal' : 'easy';
+                                update({ versusDifficulty: next });
+                            }}
                         >
                             <SelectTrigger className="h-9 w-[160px]">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="easy">{lang === 'fr' ? 'Facile' : 'Easy'}</SelectItem>
-                                <SelectItem value="hard">{lang === 'fr' ? 'Difficile (x1.5 score)' : 'Hard (x1.5 score)'}</SelectItem>
+                                <SelectItem value="normal">{lang === 'fr' ? 'Normal (x1.5 score)' : 'Normal (x1.5 score)'}</SelectItem>
+                                <SelectItem value="hard">{lang === 'fr' ? 'Difficile (x2.0 score)' : 'Hard (x2.0 score)'}</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
@@ -187,7 +193,11 @@ export function CampaignVersus() {
                     <CardHeader>
                         <div className="flex items-center justify-between gap-2">
                             <CardTitle className="text-base">{s.versus.human}</CardTitle>
-                            <div className="text-xs text-muted-foreground">{countLetters(text)} {s.common.chars}</div>
+                            <div className="text-xs text-muted-foreground">
+                                {isSnowball
+                                    ? (<>{countWords(text)} {s.common.words}</>)
+                                    : (<>{countLetters(text)} {s.common.chars}</>)}
+                            </div>
                         </div>
                     </CardHeader>
                     <CardContent className="space-y-3">
@@ -214,7 +224,11 @@ export function CampaignVersus() {
                     <CardHeader>
                         <div className="flex items-center justify-between gap-2">
                             <CardTitle className="text-base">{s.versus.machine}</CardTitle>
-                            <div className="text-xs text-muted-foreground">{countLetters(machineText)} {s.common.chars}</div>
+                            <div className="text-xs text-muted-foreground">
+                                {isSnowball
+                                    ? (<>{countWords(machineText)} {s.common.words}</>)
+                                    : (<>{countLetters(machineText)} {s.common.chars}</>)}
+                            </div>
                         </div>
                     </CardHeader>
                     <CardContent>

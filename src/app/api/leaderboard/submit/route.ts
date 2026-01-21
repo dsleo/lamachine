@@ -11,7 +11,7 @@ const BodySchema = z.object({
     campaignId: z.literal('v1'),
     lang: z.enum(['fr', 'en']),
     mode: z.enum(['arena', 'versus']),
-    difficulty: z.enum(['easy', 'hard']).optional(),
+    difficulty: z.enum(['easy', 'normal', 'hard']).optional(),
     nickname: z.string(),
 
     // client-provided progress
@@ -40,8 +40,8 @@ export async function POST(req: Request) {
 
     const body = parsed.data;
     const difficulty = body.difficulty ?? 'easy';
-    if (difficulty === 'hard' && body.mode !== 'versus') {
-        return new Response('Hard difficulty is only supported in versus mode', { status: 400 });
+    if (difficulty !== 'easy' && body.mode !== 'versus') {
+        return new Response('Difficulty is only supported in versus mode', { status: 400 });
     }
 
     const nickname = normalizeNickname(body.nickname);
@@ -71,7 +71,7 @@ export async function POST(req: Request) {
         // For palindrome levels, we just require validity.
     }
 
-    const multiplier = difficulty === 'hard' ? 1.5 : 1.0;
+    const multiplier = difficulty === 'hard' ? 2.0 : difficulty === 'normal' ? 1.5 : 1.0;
     const levelScore = Math.floor(levelScoreRaw * multiplier);
 
     const totalChars = countLetters(body.text); // v1: store last-level chars; can evolve to total across levels

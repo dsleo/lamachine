@@ -25,7 +25,10 @@ function buildShareText(args: { lang: Lang; data: CelebrationData }) {
                 : 'coached';
 
     const constraint = data.constraintLabel ? ` (${data.constraintLabel})` : '';
-    const chars = typeof data.chars === 'number' ? ` — ${data.chars} ${lang === 'fr' ? 'caractères' : 'chars'}` : '';
+    const unit = data.mode === 'versus'
+        ? (lang === 'fr' ? 'points' : 'points')
+        : (lang === 'fr' ? 'caractères' : 'chars');
+    const chars = typeof data.chars === 'number' ? ` — ${data.chars} ${unit}` : '';
 
     if (lang === 'fr') {
         return `J’ai ${modeLabel} La Machine${constraint}${chars}. À vous de jouer !`;
@@ -79,7 +82,9 @@ export function CelebrationBanner(props: {
                                 {data.constraintLabel ? <span className="font-medium text-foreground">{data.constraintLabel}</span> : null}
                                 {data.constraintLabel && typeof data.chars === 'number' ? <span className="opacity-60"> • </span> : null}
                                 {typeof data.chars === 'number' ? (
-                                    <span className="tabular-nums">{data.chars} {lang === 'fr' ? 'caractères' : 'chars'}</span>
+                                    <span className="tabular-nums">
+                                        {data.chars} {data.mode === 'versus' ? (lang === 'fr' ? 'points' : 'points') : (lang === 'fr' ? 'caractères' : 'chars')}
+                                    </span>
                                 ) : null}
                             </div>
                         )}
@@ -113,4 +118,3 @@ export function CelebrationBanner(props: {
         </Card>
     );
 }
-

@@ -8,6 +8,10 @@ type StreamRequestBody = {
     system?: string;
     prompt: string;
     temperature?: number;
+    // Optional controls (used for deterministic generation in some constraints).
+    // Kept optional for backward compatibility.
+    maxTokens?: number;
+    stop?: string[];
 };
 
 export async function POST(req: Request) {
@@ -35,26 +39,56 @@ export async function POST(req: Request) {
         return new Response('Missing `prompt`', { status: 400 });
     }
 
+    const maxTokensRaw = body.maxTokens;
+    const maxTokens =
+        typeof maxTokensRaw === 'number' && Number.isFinite(maxTokensRaw)
+            ? Math.min(512, Math.max(1, Math.floor(maxTokensRaw)))
+            : undefined;
+
+    // OpenAI enforces a small max size on `stop`.
+    const stop = Array.isArray(body.stop) && body.stop.every((x) => typeof x === 'string')
+        ? body.stop.slice(0, 4)
+        : undefined;
+
     const openai = new OpenAI({ apiKey });
     const encoder = new TextEncoder();
 
+    const throttleMsRaw = process.env.OPENAI_STREAM_THROTTLE_MS;
+    const throttleMs = throttleMsRaw ? Number(throttleMsRaw) : 0;
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
     // Chat Completions streaming: stable + easy to forward as plain text.
-    const completionStream = await openai.chat.completions.create({
-        model,
-        temperature,
-        stream: true,
-        messages: [
-            { role: 'system', content: system },
-            { role: 'user', content: prompt },
-        ],
-    });
+    let completionStream: Awaited<ReturnType<typeof openai.chat.completions.create>>;
+    try {
+        completionStream = await openai.chat.completions.create({
+            model,
+            temperature,
+            max_tokens: maxTokens,
+            stop,
+            stream: true,
+            messages: [
+                { role: 'system', content: system },
+                { role: 'user', content: prompt },
+            ],
+        });
+    } catch (e) {
+        // Avoid throwing raw errors (which become opaque 500s).
+        const msg = e instanceof Error ? e.message : 'OpenAI request failed';
+        return new Response(msg, { status: 500 });
+    }
 
     const readable = new ReadableStream<Uint8Array>({
         async start(controller) {
             try {
                 for await (const chunk of completionStream) {
                     const delta = chunk.choices?.[0]?.delta?.content;
-                    if (delta) controller.enqueue(encoder.encode(delta));
+                    if (delta) {
+                        controller.enqueue(encoder.encode(delta));
+                        // Optional throttling to make streaming visually observable while debugging.
+                        if (throttleMs && Number.isFinite(throttleMs) && throttleMs > 0) {
+                            await sleep(Math.min(200, Math.max(0, throttleMs)));
+                        }
+                    }
                 }
                 controller.close();
             } catch (err) {
@@ -70,4 +104,3 @@ export async function POST(req: Request) {
         },
     });
 }
-

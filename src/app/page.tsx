@@ -7,7 +7,7 @@ export default function Home() {
 
         <div className="flex items-center justify-center gap-3">
           <a
-            href="/daily"
+            href="/daily/versus"
             className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-6 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             Jouer
