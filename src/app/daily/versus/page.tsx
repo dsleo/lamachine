@@ -14,7 +14,6 @@ import { SubmitScoreDialog } from '@/components/submit-score-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Slider } from '@/components/ui/slider';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { countLetters, countWords } from '@/lib/text-metrics';
 import { LoadingDots } from '@/components/loading-dots';
@@ -31,6 +30,34 @@ export default function DailyVersusPage() {
     const dayKey = useMemo(() => getParisDayKey(), []);
     const challenge = useMemo(() => getDailyChallenge(dayKey), [dayKey]);
     const constraint = useMemo(() => getConstraintById(challenge.constraintId), [challenge.constraintId]);
+
+    const constraintSentence = useMemo(() => {
+        if (lang !== 'fr') return null;
+
+        const q = (s: string) => `“${s}”`;
+
+        switch (challenge.constraintId) {
+            case 'lipogram':
+                return `Écrire un lipogramme sans la lettre ${q(challenge.param ?? '')}.`;
+            case 'monovocalism':
+                return `Écrire un texte avec une seule voyelle : ${q(challenge.param ?? '')}.`;
+            case 'tautogram':
+                return `Écrire un tautogramme en ${challenge.param ?? ''}`;
+            case 'alliteration':
+                return `Écrire une allitération en ${challenge.param ?? ''}`;
+            case 'snowball':
+                return 'Écrire une boule de neige';
+            case 'beau-present':
+                return `Écrire un beau présent avec les lettres de ${q(challenge.param ?? '')}.`;
+            case 'palindrome':
+                return 'Écrire un palindrome';
+            case 'pangram':
+                return 'Écrire un pangramme';
+            default:
+                // Fallback (should not happen) – keep UI usable.
+                return `Écrire un ${constraint.name.toLowerCase()}`;
+        }
+    }, [challenge.constraintId, challenge.param, constraint.name, lang]);
 
     const [humanText, setHumanText] = useState('');
     const [machineText, setMachineText] = useState('');
@@ -157,15 +184,13 @@ export default function DailyVersusPage() {
 
         // While generating, only update when we have a non-zero score.
         if (machineScore > 0) setMachineDisplayedScore(machineScore);
-    }, [machineStarted, machineDone, machineScore]);
+    }, [machineStarted, machineDone, machineScore, machineText.length]);
 
     const machineDisplayText = useMemo(() => {
         // If we violated, do not display any extra words after the violating token.
         if (machineHighlightEnd === null) return machineText;
         return machineText.slice(0, machineHighlightEnd);
     }, [machineText, machineHighlightEnd]);
-
-    const showAttempt = settings.versusDifficulty === 'hard' && machineAttemptInfo;
 
     const difficultyLabel = useMemo(() => {
         const d = settings.versusDifficulty;
@@ -204,20 +229,11 @@ export default function DailyVersusPage() {
     return (
         <main className="min-h-screen w-full bg-background">
             <div className="mx-auto w-full max-w-6xl space-y-6 p-6 sm:p-10">
-                <header className="space-y-2">
-                    <h1 className="text-4xl font-bold tracking-tight">
-                        {lang === 'fr' ? 'Battez la Machine' : 'Beat the Machine'}
-                    </h1>
-                </header>
-
                 <Card>
                     <CardContent className="pt-6">
                         <div className="flex items-start justify-between gap-4">
                             <div className="space-y-1">
-                                <div className="text-2xl font-semibold">
-                                    {constraint.name}
-                                    {challenge.param ? ` en ${challenge.param}` : ''}
-                                </div>
+                                <div className="text-2xl font-semibold">{constraintSentence ?? constraint.name}</div>
                                 <div className="text-sm text-muted-foreground">{constraint.description}</div>
                             </div>
                             <div className="text-xs text-muted-foreground tabular-nums">{formatDayKeyDisplay(dayKey)}</div>
