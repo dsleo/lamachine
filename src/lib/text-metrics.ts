@@ -1,9 +1,9 @@
 export function countWords(text: string): number {
     // Unicode-aware word counter.
-    // IMPORTANT: apostrophes and hyphens are treated as separators.
-    // This aligns with the constraint semantics (e.g. "m'avertir" => "m" + "avertir",
-    // "porte-monnaie" => "porte" + "monnaie").
-    const m = text.match(/[\p{L}\p{N}]+/gu);
+    // Semantics:
+    // - Apostrophes are separators (French elision): "m'avertir" => "m" + "avertir".
+    // - Hyphens are part of the word for compounds: "mille-pattes" is ONE word.
+    const m = text.match(/[\p{L}\p{N}]+(?:-[\p{L}\p{N}]+)*/gu);
     return m ? m.length : 0;
 }
 

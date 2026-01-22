@@ -9,7 +9,7 @@ const QuerySchema = z.object({
     mode: z.enum(['coach', 'versus']),
     // Keep lang filter for now to avoid mixing leaderboards.
     lang: z.enum(['fr', 'en']),
-    limit: z.coerce.number().int().min(1).max(50).default(10),
+    limit: z.coerce.number().int().min(1).max(100).default(100),
 });
 
 export async function GET(req: Request) {
@@ -21,7 +21,7 @@ export async function GET(req: Request) {
     const parsed = QuerySchema.safeParse({
         mode: url.searchParams.get('mode') ?? undefined,
         lang: url.searchParams.get('lang') ?? undefined,
-        limit: url.searchParams.get('limit') ?? '10',
+        limit: url.searchParams.get('limit') ?? '100',
     });
 
     if (!parsed.success) {

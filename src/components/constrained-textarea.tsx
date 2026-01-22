@@ -10,9 +10,11 @@ import { cn } from '@/lib/utils';
 const WORD_BASED_CONSTRAINTS = new Set<Constraint['id']>(['tautogram', 'alliteration', 'snowball']);
 
 function endsWithBoundary(text: string) {
-    // Treat apostrophes and hyphens as separators too (e.g. m'avertir, porte-monnaie)
+    // Treat apostrophes as separators (e.g. m'avertir).
+    // NOTE: hyphen is NOT a separator because we treat hyphenated compounds as one word
+    // (e.g. mille-pattes is a single word).
     // Includes straight and curly apostrophes.
-    return /[\s.,;:!?\-"'’]$/.test(text);
+    return /[\s.,;:!?"'’]$/.test(text);
 }
 
 export type ValidationResult = {
@@ -114,4 +116,3 @@ export function ConstrainedTextarea(props: {
         </div>
     );
 }
-

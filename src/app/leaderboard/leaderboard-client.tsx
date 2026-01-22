@@ -2,20 +2,18 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import type { Lang } from '@/lib/i18n';
 import { t } from '@/lib/i18n';
 import { useSettings } from '@/hooks/use-settings';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
 import { getConstraintById } from '@/lib/constraints';
 import { formatDayKeyDisplay } from '@/lib/time';
-import { getParisDayKey } from '@/lib/daily';
 import { parseCelebrationQuery } from '@/lib/celebration';
 import { CelebrationBanner } from '@/components/celebration-banner';
 import { CelebrationConfetti } from '@/components/celebration-confetti';
 
-type Mode = 'coach' | 'versus';
+const MODE = 'versus' as const;
+const LIMIT = 100;
 
 type Row = {
     id: string;
@@ -40,9 +38,9 @@ export function LeaderboardClient() {
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
-    const { settings, update } = useSettings();
+    const { settings } = useSettings();
     const lang = settings.lang;
-    const s = t(lang);
+    t(lang);
 
     const celebrationQuery = useMemo(() => parseCelebrationQuery(searchParams), [searchParams]);
 
@@ -60,15 +58,12 @@ export function LeaderboardClient() {
         return p ? `${id} ${p}` : id;
     }, [celebrationQuery.constraintId, celebrationQuery.param]);
 
-    const [mode, setMode] = useState<Mode>((celebrationQuery.mode as Mode) ?? 'versus');
     const [rows, setRows] = useState<Row[]>([]);
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [openRow, setOpenRow] = useState<Row | null>(null);
 
     const title = useMemo(() => (lang === 'fr' ? 'Classement' : 'Leaderboard'), [lang]);
-
-    const dayKey = useMemo(() => celebrationQuery.dayKey ?? getParisDayKey(), [celebrationQuery.dayKey]);
 
     const openConstraintLabel = useMemo(() => {
         if (!openRow) return '';
@@ -82,12 +77,6 @@ export function LeaderboardClient() {
         }
     }, [lang, openRow]);
 
-    // Keep the toggle aligned with URL params when arriving from /daily/* (which pushes mode=...)
-    useEffect(() => {
-        const m = celebrationQuery.mode;
-        if (m === 'coach' || m === 'versus') setMode(m);
-    }, [celebrationQuery.mode]);
-
     useEffect(() => {
         let cancelled = false;
         async function load() {
@@ -95,7 +84,7 @@ export function LeaderboardClient() {
             setError(null);
             try {
                 const res = await fetch(
-                    `/api/daily/leaderboard/list?mode=${mode}&lang=${lang}&limit=10`,
+                    `/api/daily/leaderboard/list?mode=${MODE}&lang=${lang}&limit=${LIMIT}`,
                     { cache: 'no-store' }
                 );
                 if (!res.ok) {
@@ -114,7 +103,7 @@ export function LeaderboardClient() {
         return () => {
             cancelled = true;
         };
-    }, [lang, mode]);
+    }, [lang]);
 
     return (
         <main className="min-h-screen w-full bg-background">
@@ -141,31 +130,12 @@ export function LeaderboardClient() {
                 <header className="space-y-2">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <h1 className="text-3xl font-bold">{title}</h1>
-
-                        <div className="flex items-center justify-between gap-3 rounded-full border bg-card p-1 w-fit">
-                            <Button
-                                size="sm"
-                                variant={mode === 'coach' ? 'default' : 'ghost'}
-                                className="rounded-full"
-                                onClick={() => setMode('coach')}
-                            >
-                                {lang === 'fr' ? 'Coacher la machine' : 'Coach the machine'}
-                            </Button>
-                            <Button
-                                size="sm"
-                                variant={mode === 'versus' ? 'default' : 'ghost'}
-                                className="rounded-full"
-                                onClick={() => setMode('versus')}
-                            >
-                                {lang === 'fr' ? 'Battre la machine' : 'Beat the machine'}
-                            </Button>
-                        </div>
                     </div>
                 </header>
 
                 <Card>
                     <CardHeader>
-                        <CardTitle className="text-base">Top 10</CardTitle>
+                        <CardTitle className="text-base">Top {LIMIT}</CardTitle>
                     </CardHeader>
                     <CardContent>
                         {loading && <div className="text-sm text-muted-foreground">Loading…</div>}

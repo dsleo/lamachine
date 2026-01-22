@@ -26,7 +26,8 @@ export type HardRetryRollbackMode = 'word' | 'sentence';
 
 const WORD_BASED_CONSTRAINTS = new Set<Constraint['id']>(['tautogram', 'alliteration', 'snowball']);
 
-const BOUNDARY_CHAR_REGEX = /[\s.,;:!?\-"'’]/;
+// Apostrophes are boundaries (French elision), hyphens are NOT (hyphenated compounds are one word).
+const BOUNDARY_CHAR_REGEX = /[\s.,;:!?"'’]/;
 
 function findWordBounds(text: string, index: number): { start: number; end: number } {
     const n = text.length;
@@ -86,9 +87,10 @@ function removeLastWord(prefix: string): string {
     while (end > 0 && /[\s.,;:!?\-"'’]/.test(prefix[end - 1] ?? '')) end -= 1;
     if (end <= 0) return '';
 
-    // 2) Find the end of the last word (letters/digits only).
+    // 2) Find the end of the last word.
+    // Semantics: apostrophes are boundaries; hyphens are allowed inside words.
     let wordEnd = end;
-    while (wordEnd > 0 && /[\p{L}\p{N}]/u.test(prefix[wordEnd - 1] ?? '')) wordEnd -= 1;
+    while (wordEnd > 0 && /[\p{L}\p{N}-]/u.test(prefix[wordEnd - 1] ?? '')) wordEnd -= 1;
     const wordStart = wordEnd;
     const word = prefix.slice(wordStart, end);
 
@@ -96,8 +98,9 @@ function removeLastWord(prefix: string): string {
     if (!word) return '';
 
     // 3) Avoid removing very short words (prepositions/articles) which keeps grammar coherent.
-    // If the last word is <= 2 chars, keep the prefix unchanged.
-    if (word.length <= 2) {
+    // Measure word length by letters only (ignore hyphens/punctuation).
+    const wordLetters = normalizeText(word.toLowerCase()).replace(/[^a-z]/g, '').length;
+    if (wordLetters <= 2) {
         // Ensure we end with a clean boundary for appending.
         if (/["'’]$/.test(prefix)) return prefix;
         return /\s$/.test(prefix) ? prefix : `${prefix} `;
@@ -150,9 +153,11 @@ function removeLastSentence(prefix: string): string {
 }
 
 function endsWithBoundary(text: string) {
-    // Treat apostrophes and hyphens as separators too (e.g. m'avertir, porte-monnaie)
+    // Treat apostrophes as separators (e.g. m'avertir).
+    // NOTE: hyphen is NOT a separator because we treat hyphenated compounds as one word
+    // (e.g. mille-pattes is a single word).
     // Includes straight and curly apostrophes.
-    return /[\s.,;:!?\-"'’]$/.test(text);
+    return /[\s.,;:!?"'’]$/.test(text);
 }
 
 function countSnowballWordLetters(word: string): number {
@@ -165,8 +170,8 @@ function countSnowballWordLetters(word: string): number {
 
 function getLastSnowballWordLengthFromPrefix(prefix: string): number | null {
     // Extract words using the same semantics as the Snowball constraint:
-    // words are sequences of letters/numbers; apostrophes/hyphens are separators.
-    const words = prefix.match(/([\p{L}\p{N}]+)/gu) ?? [];
+    // words are sequences of letters/numbers; apostrophes are separators; hyphens are allowed inside words.
+    const words = prefix.match(/[\p{L}\p{N}]+(?:-[\p{L}\p{N}]+)*/gu) ?? [];
     if (words.length === 0) return null;
     const last = words[words.length - 1] ?? '';
     const len = countSnowballWordLetters(last);
@@ -179,7 +184,7 @@ function sleep(ms: number) {
 
 function stripToSingleWord(candidate: string): string {
     // Keep only the first WORD_REGEX-like token.
-    const m = candidate.match(/^[\s\r\n]*([\p{L}\p{N}]+)/u);
+    const m = candidate.match(/^[\s\r\n]*([\p{L}\p{N}]+(?:-[\p{L}\p{N}]+)*)/u);
     return (m?.[1] ?? '').trim();
 }
 
