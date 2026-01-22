@@ -1,15 +1,14 @@
 "use client";
 
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Home } from 'lucide-react';
+import { Home } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SettingsDialog } from '@/components/settings-dialog';
 import { useSettings } from '@/hooks/use-settings';
 import { t } from '@/lib/i18n';
 
 export function AppNav() {
-    const router = useRouter();
     const pathname = usePathname();
     const { settings } = useSettings();
     const s = t(settings.lang);
@@ -27,16 +26,6 @@ export function AppNav() {
                             <Home className="mr-2 h-4 w-4" />
                             Menu
                         </Link>
-                    </Button>
-
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => router.back()}
-                        aria-label="Back"
-                    >
-                        <ArrowLeft className="mr-2 h-4 w-4" />
-                        Back
                     </Button>
 
                     <Button variant="ghost" size="sm" asChild>
