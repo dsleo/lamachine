@@ -8,15 +8,17 @@ export const ALPHABET: readonly string[] = [...VOWELS, ...CONSONANTS].sort();
 // Unicode-aware word matcher.
 // - `\p{L}` matches any letter (including accented letters)
 // - `\p{N}` matches any number
-// IMPORTANT: apostrophes and hyphens are treated as separators.
-// This matches the intended semantics for word-start constraints (tautogram/alliteration):
-// - "m'avertir" is treated as "m" + "avertir" (so invalid for tautogram in "m")
-// - "porte-monnaie" is treated as "porte" + "monnaie".
-export const WORD_REGEX = /[\p{L}\p{N}]+/gu;
+//
+// Semantics:
+// - Apostrophes are treated as separators (French elision): "m'avertir" => "m" + "avertir".
+// - Hyphens are treated as *in-word* for French compound words: "mille-pattes" is ONE word.
+//   (So word-start constraints like tautogram/alliteration should accept it as starting with "m".)
+export const WORD_REGEX = /[\p{L}\p{N}]+(?:-[\p{L}\p{N}]+)*/gu;
 
 // Boundary used for "word-based" constraints while typing/streaming.
-// Includes whitespace/punctuation + separators like apostrophes/hyphens.
-const WORD_BOUNDARY_REGEX = /[\s.,;:!?\-"'’]$/;
+// Includes whitespace/punctuation + separators like apostrophes.
+// NOTE: hyphen is *not* a boundary because we treat hyphenated compounds as one word.
+const WORD_BOUNDARY_REGEX = /[\s.,;:!?"'’]$/;
 
 // Normalize French letters by stripping accents/diacritics so that
 // "é, è, ê, ë" are treated as "e", "à, â" as "a", "ù, û" as "u", etc.
