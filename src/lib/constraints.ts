@@ -43,6 +43,12 @@ export type ConstraintParam =
     kind: 'none';
   };
 
+export type ConstraintValidateOptions = {
+  // Some constraints need different semantics while typing vs at final submit.
+  // Example: pangram should not block typing when incomplete, but must be complete when submitting.
+  stage?: 'typing' | 'submit';
+};
+
 export type Constraint = {
   id:
   | 'lipogram'
@@ -52,13 +58,15 @@ export type Constraint = {
   | 'palindrome'
   | 'snowball'
   | 'beau-present'
-  | 'pangram';
+  | 'pangram'
+  | 'pangram-strict';
   name: string;
   description: string;
   parameter: ConstraintParam;
   validate: (
     text: string,
-    param: string
+    param: string,
+    opts?: ConstraintValidateOptions
   ) => { isValid: boolean; error?: string; meta?: Record<string, unknown> };
 };
 
@@ -252,7 +260,8 @@ export const CONSTRAINTS: readonly Constraint[] = [
     name: 'Pangramme',
     description: 'Texte qui utilise toutes les lettres de l’alphabet au moins une fois.',
     parameter: { kind: 'none' },
-    validate: (text) => {
+    validate: (text, _param, opts) => {
+      const stage = opts?.stage ?? 'typing';
       const normalizedText = normalizeText(text.toLowerCase());
       const usedLetters = new Set(
         [...normalizedText].filter((ch) => ALPHABET.includes(ch))
@@ -260,11 +269,66 @@ export const CONSTRAINTS: readonly Constraint[] = [
 
       const missingLetters = ALPHABET.filter((letter) => !usedLetters.has(letter));
 
-      // Pangramme is purely informative: never block typing,
-      // only report the missing letters.
+      // While typing: never block, just report missing letters.
+      if (stage === 'typing') {
+        return {
+          isValid: true,
+          meta: { missingLetters },
+        };
+      }
+
+      // On submit: require a complete pangram.
+      if (missingLetters.length > 0) {
+        return {
+          isValid: false,
+          error: `Pangramme incomplet. Lettres manquantes: ${missingLetters.join(' ')}`,
+          meta: { missingLetters },
+        };
+      }
+
+      return { isValid: true, meta: { missingLetters } };
+    },
+  },
+  {
+    id: 'pangram-strict',
+    name: 'Pangramme strict',
+    description: 'Chaque lettre de l’alphabet doit être utilisée exactement une fois (pas de répétition).',
+    parameter: { kind: 'none' },
+    validate: (text, _param, opts) => {
+      const stage = opts?.stage ?? 'typing';
+      const normalizedText = normalizeText(text.toLowerCase());
+
+      const counts = new Map<string, number>();
+      for (const ch of normalizedText) {
+        if (!ALPHABET.includes(ch)) continue;
+        counts.set(ch, (counts.get(ch) ?? 0) + 1);
+      }
+
+      const repeated = ALPHABET.filter((l) => (counts.get(l) ?? 0) > 1);
+      const missingLetters = ALPHABET.filter((l) => (counts.get(l) ?? 0) === 0);
+
+      // While typing: block as soon as any letter repeats.
+      if (repeated.length > 0) {
+        return {
+          isValid: false,
+          error: `Lettre répétée interdite (pangramme strict): ${repeated.join(' ')}`,
+          meta: { missingLetters, repeated },
+        };
+      }
+
+      if (stage === 'submit') {
+        if (missingLetters.length > 0) {
+          return {
+            isValid: false,
+            error: `Pangramme strict incomplet. Lettres manquantes: ${missingLetters.join(' ')}`,
+            meta: { missingLetters, repeated },
+          };
+        }
+      }
+
       return {
         isValid: true,
-        meta: { missingLetters },
+        meta: { missingLetters, repeated },
       };
     },
   }

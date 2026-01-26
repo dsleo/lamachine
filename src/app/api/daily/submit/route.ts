@@ -51,6 +51,10 @@ export async function POST(req: Request) {
         return jsonError('Invalid nickname (use 3-10 chars: A-Z0-9_-)', 400);
     }
 
+    // Commit split note:
+    // - This route is committed in the “constraints + submit-stage validation” commit.
+    // - It must remain compatible with the pre-mode daily selection (coach default).
+    // The follow-up “daily pools” commit will switch this to `getDailyChallengeForMode({ dayKey, mode })`.
     const challenge = getDailyChallenge(body.dayKey);
     const constraint = getConstraintById(challenge.constraintId);
 
@@ -58,7 +62,8 @@ export async function POST(req: Request) {
     const multiplier = difficulty === 'hard' ? 2.0 : difficulty === 'normal' ? 1.5 : 1.0;
 
     // Deterministic validation
-    const res = constraint.validate(body.text, challenge.param);
+    // Some constraints (e.g. pangram) have stricter semantics at final submit.
+    const res = constraint.validate(body.text, challenge.param, { stage: 'submit' });
     if (!res.isValid) {
         return jsonError(`Constraint violation: ${res.error ?? 'invalid'}`, 400);
     }

@@ -19,6 +19,7 @@ type ConstraintId = (typeof CONSTRAINTS)[number]['id'] | 'none';
 
 type ConstraintMeta = {
   missingLetters?: string[];
+  repeated?: string[];
 };
 
 export default function OulipoEditor() {
@@ -86,7 +87,7 @@ export default function OulipoEditor() {
       }
 
       setError(null);
-      if (selectedConstraint.id !== 'pangram') {
+      if (selectedConstraint.id !== 'pangram' && selectedConstraint.id !== 'pangram-strict') {
         setMeta(null);
       }
     } else {
@@ -263,7 +264,7 @@ export default function OulipoEditor() {
               />
               <div className="flex items-center justify-between text-xs text-muted-foreground">
                 <div className="flex flex-col gap-1 text-left">
-                  {selectedConstraint?.id === 'pangram' && meta?.missingLetters && (
+                  {(selectedConstraint?.id === 'pangram' || selectedConstraint?.id === 'pangram-strict') && meta?.missingLetters && (
                     <div className="inline-flex flex-wrap items-center gap-1 rounded-full border px-2 py-0.5">
                       <span className="font-medium">Lettres manquantes :</span>
                       {meta.missingLetters.length === 0 ? (
@@ -289,7 +290,7 @@ export default function OulipoEditor() {
                     </div>
                   )}
                 </div>
-                {selectedConstraint?.id !== 'pangram' && (
+                {selectedConstraint?.id !== 'pangram' && selectedConstraint?.id !== 'pangram-strict' && (
                   <div
                     className={cn(
                       "inline-flex items-center gap-1 rounded-full px-2 py-0.5 border",
