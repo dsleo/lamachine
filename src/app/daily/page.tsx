@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useMemo } from 'react';
 import { useSettings } from '@/hooks/use-settings';
-import { getDailyChallenge, getParisDayKey } from '@/lib/daily';
+import { getDailyChallengeForMode, getParisDayKey } from '@/lib/daily';
 import { getConstraintById } from '@/lib/constraints';
 
 export default function DailyPage() {
@@ -11,7 +11,8 @@ export default function DailyPage() {
     const lang = settings.lang;
 
     const todayKey = useMemo(() => getParisDayKey(), []);
-    const challenge = useMemo(() => getDailyChallenge(todayKey), [todayKey]);
+    // Landing page is a generic entrypoint; use the coach pool.
+    const challenge = useMemo(() => getDailyChallengeForMode({ dayKey: todayKey, mode: 'coach' }), [todayKey]);
     const constraint = useMemo(() => getConstraintById(challenge.constraintId), [challenge.constraintId]);
 
     const sentence = useMemo(() => {
@@ -44,6 +45,14 @@ export default function DailyPage() {
             return lang === 'fr'
                 ? `Écrire un “beau présent” en utilisant uniquement les lettres de: ${challenge.param}.`
                 : `Write a “beautiful present” using only letters from: ${challenge.param}.`;
+        }
+        if (challenge.constraintId === 'pangram') {
+            return lang === 'fr' ? 'Écrire un pangramme.' : 'Write a pangram.';
+        }
+        if (challenge.constraintId === 'pangram-strict') {
+            return lang === 'fr'
+                ? 'Écrire un pangramme strict (chaque lettre une seule fois).'
+                : 'Write a strict pangram (each letter only once).';
         }
         return constraint.name;
     }, [challenge.constraintId, challenge.param, constraint.name, lang]);
@@ -78,6 +87,16 @@ export default function DailyPage() {
             return lang === 'fr'
                 ? 'Beau présent: le texte n’utilise que les lettres présentes dans une phrase donnée.'
                 : 'Beautiful present: the text can only use letters from a given phrase.';
+        }
+        if (challenge.constraintId === 'pangram') {
+            return lang === 'fr'
+                ? 'Pangramme: utilisez toutes les lettres de l’alphabet au moins une fois.'
+                : 'Pangram: use every letter of the alphabet at least once.';
+        }
+        if (challenge.constraintId === 'pangram-strict') {
+            return lang === 'fr'
+                ? 'Pangramme strict: chaque lettre doit être utilisée exactement une fois.'
+                : 'Strict pangram: each letter must be used exactly once.';
         }
         return constraint.description;
     }, [challenge.constraintId, constraint.description, lang]);

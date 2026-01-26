@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSettings } from '@/hooks/use-settings';
-import { getDailyChallenge, getParisDayKey } from '@/lib/daily';
+import { getDailyChallengeForMode, getParisDayKey } from '@/lib/daily';
 import { getConstraintById, type ConstraintId } from '@/lib/constraints';
 import { formatDayKeyDisplay } from '@/lib/time';
 import { ArenaRunner } from '@/components/arena-runner';
@@ -19,7 +19,7 @@ export default function DailyCoachPage() {
     const { toast } = useToast();
 
     const dayKey = useMemo(() => getParisDayKey(), []);
-    const challenge = useMemo(() => getDailyChallenge(dayKey), [dayKey]);
+    const challenge = useMemo(() => getDailyChallengeForMode({ dayKey, mode: 'coach' }), [dayKey]);
     const constraint = useMemo(() => getConstraintById(challenge.constraintId), [challenge.constraintId]);
 
     const [text, setText] = useState('');

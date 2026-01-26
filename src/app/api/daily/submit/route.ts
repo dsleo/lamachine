@@ -3,7 +3,7 @@ import OpenAI from 'openai';
 import { db } from '@/server/db/client';
 import { dailySubmissions } from '@/server/db/schema';
 import { isValidNickname, normalizeNickname } from '@/lib/nickname';
-import { getDailyChallenge } from '@/lib/daily';
+import { getDailyChallengeForMode } from '@/lib/daily';
 import { getConstraintById } from '@/lib/constraints';
 import { buildSemanticJudgePrompt, type SemanticJudgeResult } from '@/lib/semantic-judge';
 import { tryParseSemanticJudgeJson } from '@/lib/semantic-judge';
@@ -51,11 +51,7 @@ export async function POST(req: Request) {
         return jsonError('Invalid nickname (use 3-10 chars: A-Z0-9_-)', 400);
     }
 
-    // Commit split note:
-    // - This route is committed in the “constraints + submit-stage validation” commit.
-    // - It must remain compatible with the pre-mode daily selection (coach default).
-    // The follow-up “daily pools” commit will switch this to `getDailyChallengeForMode({ dayKey, mode })`.
-    const challenge = getDailyChallenge(body.dayKey);
+    const challenge = getDailyChallengeForMode({ dayKey: body.dayKey, mode: body.mode });
     const constraint = getConstraintById(challenge.constraintId);
 
     const difficulty = body.mode === 'versus' ? (body.difficulty ?? 'easy') : 'easy';

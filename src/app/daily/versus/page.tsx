@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSettings } from '@/hooks/use-settings';
 import { t } from '@/lib/i18n';
-import { getDailyChallenge, getParisDayKey } from '@/lib/daily';
+import { getDailyChallengeForMode, getParisDayKey } from '@/lib/daily';
 import { getConstraintById, type ConstraintId } from '@/lib/constraints';
 import { formatDayKeyDisplay } from '@/lib/time';
 import { ConstrainedTextarea } from '@/components/constrained-textarea';
@@ -28,7 +28,7 @@ export default function DailyVersusPage() {
     const { toast } = useToast();
 
     const dayKey = useMemo(() => getParisDayKey(), []);
-    const challenge = useMemo(() => getDailyChallenge(dayKey), [dayKey]);
+    const challenge = useMemo(() => getDailyChallengeForMode({ dayKey, mode: 'versus' }), [dayKey]);
     const constraint = useMemo(() => getConstraintById(challenge.constraintId), [challenge.constraintId]);
 
     const constraintSentence = useMemo(() => {
@@ -53,6 +53,8 @@ export default function DailyVersusPage() {
                 return 'Écrire un palindrome';
             case 'pangram':
                 return 'Écrire un pangramme';
+            case 'pangram-strict':
+                return 'Écrire un pangramme strict (chaque lettre une seule fois)';
             default:
                 // Fallback (should not happen) – keep UI usable.
                 return `Écrire un ${constraint.name.toLowerCase()}`;
